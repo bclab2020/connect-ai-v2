@@ -14,17 +14,28 @@ var apiManager = {
     generateReport: async function(session, apiKey) {
         // Prepare biomechanical summaries for the prompt/rules
         var metrics = this.extractMetrics(session);
+        var report = "";
         
         if (apiKey && apiKey.trim() !== "") {
             try {
-                return await this.fetchGeminiReport(metrics, apiKey);
+                report = await this.fetchGeminiReport(metrics, apiKey);
             } catch (e) {
                 console.error("Gemini API Error, falling back to offline analysis:", e);
-                return this.generateOfflineReport(metrics, "⚠️ [APIエラーによりオフライン生成されました: " + e + "]\n\n");
+                report = this.generateOfflineReport(metrics, "⚠️ [APIエラーによりオフライン生成されました: " + e + "]\n\n");
             }
         } else {
-            return this.generateOfflineReport(metrics);
+            report = this.generateOfflineReport(metrics);
         }
+
+        // Append expert evaluation if present!
+        if (session.expertComment && session.expertComment.trim() !== "") {
+            report += `\n\n---\n\n## 👩‍⚕️ 担当専門家・メンターによる評価カルテ\n`;
+            report += `**指導者アセスメント**:\n${session.expertComment}\n\n`;
+            if (session.expertExercises && session.expertExercises.trim() !== "") {
+                report += `**指導者処方リハビリメニュー**:\n${session.expertExercises}\n`;
+            }
+        }
+        return report;
     },
 
     /**

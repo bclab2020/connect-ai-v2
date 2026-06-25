@@ -1,7 +1,9 @@
 /**
- * CONNECT AI - Main Application Controller
- * Manages video inputs, MediaPipe loops, recording timers, IndexedDB operations,
- * interactive canvas clicks, D-pad joint adjustments, and dashboard generation.
+ * ÉLITE PERFORMANCE - Athletecore Pro
+ * Main Application Controller
+ * Coordinates camera loops, MediaPipe Pose estimations, auto-scale calibrations,
+ * PWA hooks, specialist logins, client-specialist JSON data exchanges,
+ * and expert assessment dashboards.
  */
 
 // Global State Variables
@@ -26,10 +28,19 @@ var dpadStepVal = 1;
 var isEditingPlaybackFrame = false;
 var swayHistoryMP = [];
 
-var pxToCmRatio = null; // scale multiplier
+var pxToCmRatio = null; // scale multiplier: cm per pixel
 var estimatedPelvicTilt = 0;
 var calibState = "idle"; // 'idle', 'wait_left', 'adjust_left', 'wait_right', 'adjust_right'
 var calibrationPoints = [];
+
+// Session Metadata
+var activeSessionId = null;
+var activePatientName = "ゲスト";
+var activeExpertComment = "";
+var activeExpertExercises = "";
+
+// Specialist Mode State
+var isSpecialist = false;
 
 // Video Export Variables
 var exportRecorder = null;
@@ -79,6 +90,7 @@ var downloadCsvBtn = document.getElementById('downloadCsvBtn');
 var showSwayAlertCheckbox = document.getElementById('showSwayAlert');
 var videoSource = document.getElementById('videoSource');
 
+var patientNameInput = document.getElementById('patientName');
 var heightInput = document.getElementById('patientHeight');
 var footSizeInput = document.getElementById('footSize');
 var calibrateMatBtn = document.getElementById('calibrateMatBtn');
@@ -92,7 +104,30 @@ var tiltValDisplay = document.getElementById('tiltValDisplay');
 var toggleUiBtn = document.getElementById('toggleUiBtn');
 var controlsBox = document.getElementById('controlsBox');
 
-// Event Handlers for UI Toggle
+// Specialist Login Modal Elements
+var modeUnlockBtn = document.getElementById('modeUnlockBtn');
+var logoutBtn = document.getElementById('logoutBtn');
+var specialistLoginModal = document.getElementById('specialistLoginModal');
+var closeLoginBtn = document.getElementById('closeLoginBtn');
+var submitLoginBtn = document.getElementById('submitLoginBtn');
+var specialistIdInput = document.getElementById('specialistId');
+var specialistPassInput = document.getElementById('specialistPass');
+var loginErrorMsg = document.getElementById('loginErrorMsg');
+
+// Paid Mentor Booking Modal Elements
+var mentorBookingModal = document.getElementById('mentorBookingModal');
+var closeBookingBtn = document.getElementById('closeBookingBtn');
+var submitBookingBtn = document.getElementById('submitBookingBtn');
+var mentorSelect = document.getElementById('mentorSelect');
+var bookingDateInput = document.getElementById('bookingDate');
+var bookingInquiryInput = document.getElementById('bookingInquiry');
+
+// JSON import element
+var importSessionJson = document.getElementById('importSessionJson');
+var importJsonGroup = document.getElementById('importJsonGroup');
+var exportSessionJsonBtn = document.getElementById('exportSessionJsonBtn');
+
+// UI Toggles
 toggleUiBtn.onclick = function() {
     if (controlsBox.style.display === 'none') {
         controlsBox.style.display = 'block';
@@ -121,6 +156,198 @@ saveApiBtn.onclick = function() {
     localStorage.setItem('gemini_api_key', geminiApiKeyInput.value.trim());
     apiSettingPanel.style.display = 'none';
     alert("APIキーを保存しました。");
+};
+
+// Specialist Authorization check
+function updateAuthUI() {
+    var titleLabel = document.getElementById('appHeaderTitle');
+    if (isSpecialist) {
+        document.body.classList.add('specialist-unlocked');
+        modeUnlockBtn.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+        importJsonGroup.style.display = 'flex';
+        exportSessionJsonBtn.style.display = 'inline-block';
+        titleLabel.innerHTML = `ATHLETECORE PRO <span class="badge" style="background:var(--accent-orange); color:#000;">Specialist Portal</span>`;
+    } else {
+        document.body.classList.remove('specialist-unlocked');
+        modeUnlockBtn.style.display = 'inline-block';
+        logoutBtn.style.display = 'none';
+        importJsonGroup.style.display = 'none';
+        exportSessionJsonBtn.style.display = 'none';
+        titleLabel.innerHTML = `ÉLITE PERFORMANCE <span class="badge">Precision in Motion</span>`;
+    }
+}
+
+modeUnlockBtn.onclick = function() {
+    loginErrorMsg.style.display = 'none';
+    specialistPassInput.value = '';
+    specialistLoginModal.style.display = 'block';
+};
+
+closeLoginBtn.onclick = function() {
+    specialistLoginModal.style.display = 'none';
+};
+
+submitLoginBtn.onclick = function() {
+    var id = specialistIdInput.value.trim();
+    var pass = specialistPassInput.value.trim();
+
+    if (id === 'specialist' && pass === 'athletecore2026') {
+        isSpecialist = true;
+        sessionStorage.setItem('isSpecialist', 'true');
+        specialistLoginModal.style.display = 'none';
+        updateAuthUI();
+        alert("専門家認証に成功しました。");
+    } else {
+        loginErrorMsg.style.display = 'block';
+    }
+};
+
+logoutBtn.onclick = function() {
+    isSpecialist = false;
+    sessionStorage.removeItem('isSpecialist');
+    updateAuthUI();
+    alert("ログアウトしました。アスリートモードに戻ります。");
+    if (appMode === 'playback') {
+        exitPlaybackMode();
+    }
+};
+
+// Mentor booking modal handlers
+closeBookingBtn.onclick = function() {
+    mentorBookingModal.style.display = 'none';
+};
+
+submitBookingBtn.onclick = function() {
+    var mentor = mentorSelect.value;
+    var mentorName = mentorSelect.options[mentorSelect.selectedIndex].text;
+    var date = bookingDateInput.value;
+    var inquiry = bookingInquiryInput.value.trim();
+
+    if (!date) {
+        alert("希望日時を選択してください。");
+        return;
+    }
+
+    // Save booking request simulated locally
+    var booking = {
+        id: "book_" + Date.now(),
+        patientName: patientNameInput.value.trim() || "ゲスト",
+        mentor: mentor,
+        mentorName: mentorName,
+        date: date,
+        inquiry: inquiry,
+        timestamp: Date.now()
+    };
+    
+    var bookings = JSON.parse(localStorage.getItem('mentor_bookings') || '[]');
+    bookings.push(booking);
+    localStorage.setItem('mentor_bookings', JSON.stringify(bookings));
+
+    mentorBookingModal.style.display = 'none';
+    alert(`個別相談セッションのご予約を受け付けました！\n\n【予約詳細】\n担当: ${mentorName}\n日時: ${new Date(date).toLocaleString()}\n\n折り返し、決済リンクおよびWebミーティングの案内をメールでお送りいたします。`);
+};
+
+// JSON data import handler
+importSessionJson.onchange = function(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            var data = jsonDecode(e.target.result);
+            if (!data.poseData || data.poseData.length === 0) {
+                throw new Error("無効なセッションデータ構造です。");
+            }
+            
+            // Set session properties
+            activeSessionId = data.id || "sess_" + Date.now();
+            activePatientName = data.patientName || "ゲスト";
+            patientNameInput.value = activePatientName;
+            
+            currentTab = data.mode || "front";
+            document.getElementById('modeSelect').value = currentTab;
+            
+            poseDataLog = data.poseData;
+            playbackDataMP = poseDataLog;
+            pxToCmRatio = data.pxToCmRatio || null;
+            estimatedPelvicTilt = data.pelvicTilt || 0;
+            
+            heightInput.value = data.height || 170;
+            footSizeInput.value = data.footSize || 25;
+            pelvicTiltSlider.value = estimatedPelvicTilt;
+            tiltValDisplay.innerText = estimatedPelvicTilt === 0 ? "0°" : (estimatedPelvicTilt > 0 ? "+" + estimatedPelvicTilt + "°" : estimatedPelvicTilt + "°");
+            
+            activeExpertComment = data.expertComment || "";
+            activeExpertExercises = data.expertExercises || "";
+            
+            swayHistoryMP = [];
+            
+            if (playbackDataMP.length > 1) { 
+                playbackBaseTime = playbackDataMP[0].time; 
+                playbackTotalDuration = playbackDataMP[playbackDataMP.length - 1].time - playbackBaseTime; 
+            } else {
+                playbackBaseTime = 0;
+                playbackTotalDuration = 0;
+            }
+            
+            var maxFrames = playbackDataMP.length - 1; 
+            document.getElementById('timelineSlider').max = maxFrames > 0 ? maxFrames : 0; 
+            document.getElementById('timelineSlider').value = 0; 
+            
+            appMode = 'playback'; 
+            document.getElementById('mainControls').style.display = 'none'; 
+            document.getElementById('playbackControls').style.display = 'flex';
+            document.getElementById('downloadCsvBtn').disabled = false;
+            
+            updateInfoPanel();
+            renderPlaybackFrame(0); 
+            togglePlay(true);
+            
+            alert(`患者データ [${activePatientName} 様 - ${apiManager.getModeNameJp(currentTab)}] を正常にインポートしました。`);
+        } catch (err) {
+            alert("JSONファイルの解析に失敗しました。ファイルが破損しているか無効な形式です。\nエラー: " + err.message);
+        }
+    };
+    reader.readAsText(file);
+    // Reset file input value so same file can be imported again
+    importSessionJson.value = '';
+};
+
+// Safe JSON decoder
+function jsonDecode(str) {
+    return JSON.parse(str);
+}
+
+// JSON data export handler
+exportSessionJsonBtn.onclick = function() {
+    if (playbackDataMP.length === 0) {
+        alert("書き出しできる測定データがありません。");
+        return;
+    }
+    
+    var sessionData = {
+        id: activeSessionId || "sess_" + Date.now(),
+        timestamp: Date.now(),
+        patientName: patientNameInput.value.trim() || "ゲスト",
+        mode: currentTab,
+        height: parseFloat(heightInput.value) || 170,
+        footSize: parseFloat(footSizeInput.value) || 25,
+        pelvicTilt: estimatedPelvicTilt,
+        pxToCmRatio: pxToCmRatio,
+        expertComment: activeExpertComment,
+        expertExercises: activeExpertExercises,
+        poseData: playbackDataMP
+    };
+    
+    var jsonStr = JSON.stringify(sessionData, null, 2);
+    var blob = new Blob([jsonStr], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = `session_${sessionData.patientName}_${currentTab}_${Date.now()}.json`;
+    a.click();
 };
 
 // History Handlers
@@ -216,7 +443,6 @@ var moveJoint = function(dx, dy) {
         if (appMode === 'playback') {
             var fIdx = parseInt(document.getElementById('timelineSlider').value);
             if (playbackDataMP[fIdx]) {
-                // Check virtual index vs blaze pose standard
                 if (selectedJointIndex === 33) {
                     kp = playbackDataMP[fIdx].keypoints.find(k => k.name === 'virtual_asis_l');
                 } else if (selectedJointIndex === 34) {
@@ -281,12 +507,10 @@ document.getElementById('dpadClose').onclick = closeDpad;
 
 // Canvas Mouse Click selector for joint adjustment
 canvasMP.onclick = function(e) {
-    // Determine coordinates relative to canvas
     var rect = canvasMP.getBoundingClientRect();
     var clickX = (e.clientX - rect.left) * (canvasMP.width / rect.width);
     var clickY = (e.clientY - rect.top) * (canvasMP.height / rect.height);
 
-    // 1. Calibration state intercepts
     if (calibState === "wait_left") {
         calibrationPoints[0] = { x: clickX, y: clickY };
         calibState = "adjust_left";
@@ -304,10 +528,9 @@ canvasMP.onclick = function(e) {
         return;
     }
     if (calibState === "adjust_left" || calibState === "adjust_right") {
-        return; // D-pad coordinates are editing calibration endpoints
+        return; 
     }
 
-    // 2. Point Adjustment Selection (Only in paused/playback edit mode)
     if (isPausedForEdit || (appMode === 'playback' && isEditingPlaybackFrame)) {
         var kps = null;
         if (appMode === 'playback') {
@@ -319,12 +542,10 @@ canvasMP.onclick = function(e) {
 
         if (!kps) return;
 
-        // Find closest point within threshold (30px)
         var closestIdx = null;
         var minDist = 30.0;
         kps.forEach((kp, idx) => {
             if (kp && kp.score > 0.1) {
-                // map index 33/34 for virtual nodes
                 var displayIdx = idx;
                 if (kp.name === 'virtual_asis_l') displayIdx = 33;
                 if (kp.name === 'virtual_asis_r') displayIdx = 34;
@@ -343,7 +564,6 @@ canvasMP.onclick = function(e) {
             document.querySelector('#dpadPanel .dpad-header span').innerText = `🎯 微調整: ${jpName}`;
             document.getElementById('dpadPanel').style.display = 'block';
             
-            // Re-render immediately to show crosshairs on the selected point
             if (appMode === 'playback') {
                 renderPlaybackFrame(parseInt(document.getElementById('timelineSlider').value));
             } else {
@@ -401,7 +621,7 @@ var makeRadarDraggable = function() {
         var dy = e.clientY - startY;
         wrapper.style.left = (initialLeft + dx) + 'px';
         wrapper.style.top = (initialTop + dy) + 'px';
-        wrapper.style.right = 'auto'; // release right boundary constraint
+        wrapper.style.right = 'auto'; 
     });
 
     document.addEventListener('mouseup', function() {
@@ -411,7 +631,6 @@ var makeRadarDraggable = function() {
         }
     });
 
-    // Touch support for mobiles
     wrapper.addEventListener('touchstart', function(e) {
         var t = e.touches[0];
         isDragging = true;
@@ -442,9 +661,30 @@ var makeRadarDraggable = function() {
 
 // Update Info HUD Panel text
 function updateInfoPanel() {
-    var scaleText = pxToCmRatio ? "校正済 (1px = " + pxToCmRatio.toFixed(3) + "cm)" : "📏 スケール未校正";
+    var scaleText = pxToCmRatio ? "校正済 (1px = " + pxToCmRatio.toFixed(3) + "cm)" : "📏 スケール未校正 (自動推定中)";
     scaleStatus.innerText = scaleText;
     pelvicStatus.innerText = "📐 骨盤傾斜: " + (estimatedPelvicTilt > 0 ? '+' : '') + estimatedPelvicTilt + "°";
+}
+
+// Automatic Scale Ratio Estimation (Biological model based on athlete height)
+function autoEstimateScaleRatio(kps) {
+    if (pxToCmRatio) return; // Skip if manually calibrated
+
+    var nose = kps.find(k=>k.name==='nose'||k.name==='0');
+    var lAnkle = kps.find(k=>k.name==='left_ankle'||k.name==='27');
+    var rAnkle = kps.find(k=>k.name==='right_ankle'||k.name==='28');
+
+    if (nose && lAnkle && rAnkle && nose.score > 0.4 && lAnkle.score > 0.4 && rAnkle.score > 0.4) {
+        var ankleY = (lAnkle.y + rAnkle.y) / 2;
+        var heightPx = ankleY - nose.y;
+        if (heightPx > 50) {
+            var heightCm = parseFloat(heightInput.value) || 170;
+            // Biological height ratio: nose height is approx 86% of total height from the floor
+            var estimatedTotalHeightPx = heightPx / 0.86;
+            pxToCmRatio = heightCm / estimatedTotalHeightPx;
+            updateInfoPanel();
+        }
+    }
 }
 
 // Refresh static view for live camera pause edit
@@ -452,7 +692,6 @@ function refreshReportView() {
     var w = video.videoWidth || canvasMP.width;
     var h = video.videoHeight || canvasMP.height;
     
-    // Draw static backdrop image if stored
     if (staticBackgroundData) {
         ctxMP.putImageData(staticBackgroundData, 0, 0);
     } else {
@@ -462,11 +701,13 @@ function refreshReportView() {
 
     var kps = window.reportDataStore[currentTab];
     if (kps) {
+        // Automatically run scale estimation in paused state if missing
+        autoEstimateScaleRatio(kps);
+        
         biomechanics.drawSkeleton(ctxMP, kps, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
         biomechanics.drawKendallAlignment(ctxMP, kps, pxToCmRatio, parseFloat(footSizeInput.value), estimatedPelvicTilt, currentTab, w, h);
         biomechanics.calculateWeightBearing(ctxMP, kps, w, h);
         
-        // Draw selected joint crosshair
         if (selectedJointIndex !== null) {
             var kp = (selectedJointIndex === 33) ? kps.find(k=>k.name==='virtual_asis_l') :
                      (selectedJointIndex === 34) ? kps.find(k=>k.name==='virtual_asis_r') : kps[selectedJointIndex];
@@ -498,12 +739,13 @@ window.refreshHistoryList = async function() {
             var date = new Date(session.timestamp);
             var dateStr = `${date.getFullYear()}/${(date.getMonth()+1).toString().padStart(2,'0')}/${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
             var modeName = MODE_NAMES_JP[session.mode] || session.mode;
+            var patName = session.patientName || "ゲスト";
 
             var item = document.createElement('div');
             item.className = 'history-item';
             item.innerHTML = `
                 <div class="history-info" onclick="window.loadSession('${session.id}')">
-                    <span class="history-mode">${modeName}</span>
+                    <span class="history-mode">${patName} 様 - ${modeName}</span>
                     <span class="history-date">${dateStr}</span>
                 </div>
                 <div class="history-actions">
@@ -542,7 +784,7 @@ window.exportSessionCsv = async function(id) {
             }); 
             var a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob([c], { type: 'text/csv' }));
-            a.download = `connect_ai_data_${session.mode}_${session.timestamp}.csv`;
+            a.download = `connect_ai_data_${session.patientName || 'guest'}_${session.mode}_${session.timestamp}.csv`;
             a.click();
         }
     } catch (e) {
@@ -561,11 +803,18 @@ window.loadSession = async function(id) {
         var sessions = await dbManager.getAllSessions();
         var session = sessions.find(s => s.id === id);
         if (session) {
+            activeSessionId = session.id;
+            activePatientName = session.patientName || "ゲスト";
+            patientNameInput.value = activePatientName;
+            
             document.getElementById('modeSelect').value = session.mode;
             currentTab = session.mode;
             poseDataLog = session.poseData;
             pxToCmRatio = session.pxToCmRatio || null;
             estimatedPelvicTilt = session.pelvicTilt || 0;
+            
+            activeExpertComment = session.expertComment || "";
+            activeExpertExercises = session.expertExercises || "";
             
             // Sync UI values
             heightInput.value = session.height || 170;
@@ -573,7 +822,6 @@ window.loadSession = async function(id) {
             pelvicTiltSlider.value = estimatedPelvicTilt;
             tiltValDisplay.innerText = estimatedPelvicTilt === 0 ? "0°" : (estimatedPelvicTilt > 0 ? "+" + estimatedPelvicTilt + "°" : estimatedPelvicTilt + "°");
             
-            // Build dynamic coordinates sway history
             swayHistoryMP = [];
             
             playbackDataMP = poseDataLog.filter(d => d.mode === currentTab);
@@ -595,6 +843,7 @@ window.loadSession = async function(id) {
             appMode = 'playback'; 
             document.getElementById('mainControls').style.display = 'none'; 
             document.getElementById('playbackControls').style.display = 'flex';
+            document.getElementById('downloadCsvBtn').disabled = false;
             
             updateInfoPanel();
             renderPlaybackFrame(0); 
@@ -614,15 +863,15 @@ function renderPlaybackFrame(frameIdx) {
     var w = canvasMP.width;
     var h = canvasMP.height;
 
-    // Clear frame & draw backdrop if available, otherwise solid dark
     ctxMP.fillStyle = "#050811";
     ctxMP.fillRect(0, 0, w, h);
     
-    // Draw skeleton & overlays
+    // Automatically run scale estimation in playback if missing
+    autoEstimateScaleRatio(kps);
+    
     var color = currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252';
     biomechanics.drawSkeleton(ctxMP, kps, color);
     
-    // Mode specific drawings
     if (currentTab === 'l_side' || currentTab === 'r_side') {
         biomechanics.drawKendallAlignment(ctxMP, kps, pxToCmRatio, parseFloat(footSizeInput.value), estimatedPelvicTilt, currentTab, w, h);
     } else if (currentTab === 'front' || currentTab === 'back' || currentTab === 'dyn_overhead') {
@@ -639,13 +888,10 @@ function renderPlaybackFrame(frameIdx) {
         biomechanics.drawShoulderAnalysis(ctxMP, kps, currentTab);
     }
 
-    // Update COP Radar representation
     biomechanics.updateRadar(kps, canvasRadarMP, ctxRadarMP, swayHistoryMP, true, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
 
-    // Update Frame Label HUD
     document.getElementById('frameCounter').innerText = `${frameIdx} / ${playbackDataMP.length - 1}`;
     
-    // Draw crosshairs on selected editing joint
     if (selectedJointIndex !== null && isEditingPlaybackFrame) {
         var kp = (selectedJointIndex === 33) ? kps.find(k=>k.name==='virtual_asis_l') :
                  (selectedJointIndex === 34) ? kps.find(k=>k.name==='virtual_asis_r') : kps[selectedJointIndex];
@@ -685,10 +931,9 @@ function playLoop(startFrame) {
     if (!isPlaying) return;
     
     var slider = document.getElementById('timelineSlider');
-    var currentFrame = startFrame + Math.floor((Date.now() - playbackStartTime) / 100); // ~10fps mapping
+    var currentFrame = startFrame + Math.floor((Date.now() - playbackStartTime) / 100); 
     
     if (currentFrame >= playbackDataMP.length) {
-        // Loop back or pause at end
         currentFrame = 0;
         playbackStartTime = Date.now();
         slider.value = 0;
@@ -702,6 +947,12 @@ function playLoop(startFrame) {
 
 // Camera/Live view setup loops
 async function init() {
+    // Session state lock restorations
+    if (sessionStorage.getItem('isSpecialist') === 'true') {
+        isSpecialist = true;
+    }
+    updateAuthUI();
+
     try {
         await dbManager.init();
     } catch (e) {
@@ -718,7 +969,6 @@ async function init() {
     }
 
     try {
-        // Trigger webcam permission modal
         var tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
         tempStream.getTracks().forEach(t => t.stop());
     } catch (e) {}
@@ -741,7 +991,6 @@ async function init() {
         await tf.setBackend('webgl'); 
         await tf.ready();
         
-        // Load BlazePose Full detector
         detectors[0] = await poseDetection.createDetector(poseDetection.SupportedModels.BlazePose, { 
             runtime: 'mediapipe', 
             solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/pose', 
@@ -771,12 +1020,16 @@ startBtn.onclick = async function() {
         video.srcObject = null; 
     }
     
-    // Reset status
     swayHistoryMP = [];
     selectedJointIndex = null;
     isPausedForEdit = false;
     staticBackgroundData = null;
     appMode = "camera";
+    
+    // Clear expert notes for fresh captures
+    activeExpertComment = "";
+    activeExpertExercises = "";
+    activeSessionId = null;
     
     document.getElementById('playbackControls').style.display = 'none';
     document.getElementById('mainControls').style.display = 'flex';
@@ -829,7 +1082,6 @@ async function render(sessionId) {
     ctxMP.drawImage(video, 0, 0, w, h); 
     biomechanics.drawCenterGrid(ctxMP, canvasMP);
 
-    // Render calibration points
     if (calibState !== "idle") {
         ctxMP.fillStyle = "#ffeb3b";
         if (calibrationPoints[0]) {
@@ -842,7 +1094,6 @@ async function render(sessionId) {
         }
     }
 
-    // Estimate poses
     var poses = [];
     try {
         poses = await detectors[0].estimatePoses(video);
@@ -852,9 +1103,11 @@ async function render(sessionId) {
     
     if (poses.length > 0) {
         var kps = poses[0].keypoints;
-        // Generate Virtual ASIS markers
         kps = generateVirtualASIS(kps);
         window.reportDataStore[currentTab] = kps;
+
+        // Auto estimate scale ratio during live tracking
+        autoEstimateScaleRatio(kps);
 
         if (isRecording) {
             coordinateBufferMP.push(kps);
@@ -865,18 +1118,15 @@ async function render(sessionId) {
             });
         }
 
-        // Draw Skeletal overlays
         var color = currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252';
         biomechanics.drawSkeleton(ctxMP, kps, color);
         
-        // Static analysis drawings
         if (currentTab === 'l_side' || currentTab === 'r_side') {
             biomechanics.drawKendallAlignment(ctxMP, kps, pxToCmRatio, parseFloat(footSizeInput.value), estimatedPelvicTilt, currentTab, w, h);
         } else if (currentTab === 'front' || currentTab === 'back' || currentTab === 'dyn_overhead') {
             biomechanics.calculateWeightBearing(ctxMP, kps, w, h);
         }
 
-        // Dynamic analysis drawings
         if (currentTab === 'dyn_overhead') {
             biomechanics.drawOHSFrontAnalysis(ctxMP, kps);
         } else if (currentTab === 'dyn_overhead_side') {
@@ -887,11 +1137,9 @@ async function render(sessionId) {
             biomechanics.drawShoulderAnalysis(ctxMP, kps, currentTab);
         }
 
-        // COP Radar calculation
         biomechanics.updateRadar(kps, canvasRadarMP, ctxRadarMP, swayHistoryMP, isRecording, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
     }
     
-    // Draw onto secondary combined canvas
     ctxComb.drawImage(canvasMP, 0, 0, w, h); 
     mainRenderId = requestAnimationFrame(() => render(sessionId)); 
 }
@@ -900,11 +1148,10 @@ async function render(sessionId) {
 function generateVirtualASIS(kps) {
     if (!kps) return kps;
     var height = parseFloat(heightInput.value) || 170;
-    var distanceCm = height * 0.085; // anatomical scale estimate
+    var distanceCm = height * 0.085; 
     var ratio = pxToCmRatio || 0.15;
     var distancePx = distanceCm / ratio;
     
-    // Pelvic tilt angle translation
     var angleRad = (45 - estimatedPelvicTilt) * (Math.PI / 180);
     var upwardOffsetPx = distancePx * Math.sin(angleRad);
     var forwardOffsetPx = distancePx * Math.cos(angleRad);
@@ -955,8 +1202,7 @@ recBtn.onclick = function() {
     recBtn.innerText = "🔴 測定中...";
     timerDisplay.style.display = 'block';
     
-    // Set custom WebM stream recorder if supported
-    var canvasStream = canvasComb.captureStream(25); // 25fps capture
+    var canvasStream = canvasComb.captureStream(25); 
     exportChunks = [];
     try {
         exportRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm;codecs=vp9' });
@@ -999,20 +1245,23 @@ async function stopRecording() {
         exportRecorder.stop();
     }
 
-    // Capture the static image of canvas to preserve it for editing
     staticBackgroundData = ctxMP.getImageData(0, 0, canvasMP.width, canvasMP.height);
     isPausedForEdit = true;
 
-    // Auto-save session to IndexedDB database
-    var sessionId = "sess_" + Date.now();
+    activeSessionId = "sess_" + Date.now();
+    activePatientName = patientNameInput.value.trim() || "ゲスト";
+
     var sessionData = {
-        id: sessionId,
+        id: activeSessionId,
         timestamp: Date.now(),
+        patientName: activePatientName,
         mode: currentTab,
         height: parseFloat(heightInput.value) || 170,
         footSize: parseFloat(footSizeInput.value) || 25,
         pelvicTilt: estimatedPelvicTilt,
         pxToCmRatio: pxToCmRatio,
+        expertComment: activeExpertComment,
+        expertExercises: activeExpertExercises,
         poseData: JSON.parse(JSON.stringify(poseDataLog))
     };
 
@@ -1023,7 +1272,6 @@ async function stopRecording() {
         console.error("Save session failed:", e);
     }
 
-    // Toggle to review editing mode directly on live pauses
     document.getElementById('mainControls').style.display = 'none';
     document.getElementById('playbackControls').style.display = 'flex';
     document.getElementById('downloadCsvBtn').disabled = false;
@@ -1055,7 +1303,6 @@ function exitPlaybackMode() {
     document.getElementById('editFrameBtn').style.background = "var(--accent-orange)";
     document.getElementById('editFrameBtn').style.color = "#000";
     
-    // Restart camera loop
     startBtn.click();
 }
 
@@ -1069,25 +1316,48 @@ function startVideoExport() {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = `connect_ai_video_${currentTab}_${Date.now()}.webm`;
+    a.download = `connect_ai_video_${patientNameInput.value.trim() || 'guest'}_${currentTab}_${Date.now()}.webm`;
     a.click();
 }
 
-// CSV export handler for current active playback logs
-document.getElementById('downloadCsvBtn').onclick = function() {
-    var c = "Timestamp,Mode,PointID,PointName,X,Y\n"; 
-    playbackDataMP.forEach(function(d) {
-        d.keypoints.forEach(function(kp, idx) {
-            if (kp) {
-                c += d.time + "," + d.mode + "," + idx + "," + (kp.name || idx) + "," + kp.x.toFixed(1) + "," + kp.y.toFixed(1) + "\n";
-            }
-        });
-    }); 
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([c], { type: 'text/csv' }));
-    a.download = `connect_ai_data_${currentTab}_${Date.now()}.csv`;
-    a.click();
-};
+// Save expert evaluation form comments to IndexedDB session
+async function saveExpertComment() {
+    var expComment = document.getElementById('expertCommentInput').value.trim();
+    var expExercises = document.getElementById('expertExercisesInput').value.trim();
+    
+    activeExpertComment = expComment;
+    activeExpertExercises = expExercises;
+    
+    if (activeSessionId) {
+        var sessionData = {
+            id: activeSessionId,
+            timestamp: Date.now(),
+            patientName: patientNameInput.value.trim() || "ゲスト",
+            mode: currentTab,
+            height: parseFloat(heightInput.value) || 170,
+            footSize: parseFloat(footSizeInput.value) || 25,
+            pelvicTilt: estimatedPelvicTilt,
+            pxToCmRatio: pxToCmRatio,
+            expertComment: activeExpertComment,
+            expertExercises: activeExpertExercises,
+            poseData: playbackDataMP
+        };
+
+        try {
+            await dbManager.saveSession(sessionData);
+            alert("専門家によるアセスメント（カルテ）を保存しました。");
+            
+            // Re-render report to reflect saved values
+            prepareAndPrintReport();
+        } catch (e) {
+            console.error("Save expert notes failed:", e);
+            alert("アセスメントの保存に失敗しました。");
+        }
+    } else {
+        alert("保存対象の測定ログがありません。一度測定を行うか、JSONをインポートしてください。");
+    }
+}
+window.saveExpertComment = saveExpertComment;
 
 // Generate Dashboard report
 async function prepareAndPrintReport() {
@@ -1097,14 +1367,18 @@ async function prepareAndPrintReport() {
     grid.innerHTML = '<div style="grid-column: 1/-1; color: var(--accent-blue); text-align:center; font-size:20px; padding:50px;">📄 レポート生成中...</div>';
     overlay.style.display = 'block';
 
-    // Mock session structure for current view
+    var patName = patientNameInput.value.trim() || "ゲスト";
+
     var activeSession = {
         mode: currentTab,
         timestamp: Date.now(),
+        patientName: patName,
         height: parseFloat(heightInput.value) || 170,
         footSize: parseFloat(footSizeInput.value) || 25,
         pelvicTilt: estimatedPelvicTilt,
         pxToCmRatio: pxToCmRatio,
+        expertComment: activeExpertComment,
+        expertExercises: activeExpertExercises,
         poseData: playbackDataMP.length > 0 ? playbackDataMP : (window.reportDataStore[currentTab] ? [{ time: Date.now(), mode: currentTab, keypoints: window.reportDataStore[currentTab] }] : [])
     };
 
@@ -1125,11 +1399,12 @@ async function prepareAndPrintReport() {
     gridHtml += `
     <div class="dash-card">
         <h3>🧍 被測定者プロファイル</h3>
+        <div class="dash-metric"><span>氏名 / ID</span><span class="val">${patName} 様</span></div>
         <div class="dash-metric"><span>測定モード</span><span class="val">${apiManager.getModeNameJp(metrics.mode)}</span></div>
         <div class="dash-metric"><span>身長</span><span class="val">${metrics.height} cm</span></div>
         <div class="dash-metric"><span>足のサイズ</span><span class="val">${metrics.footSize} cm</span></div>
         <div class="dash-metric"><span>骨盤傾斜角</span><span class="val ${metrics.pelvicTilt !== 0 ? 'warn' : ''}">${metrics.pelvicTilt}°</span></div>
-        <div class="dash-metric"><span>スケール</span><span class="val">${metrics.pxToCmRatio ? (1/metrics.pxToCmRatio).toFixed(1) + ' px/cm' : '未校正'}</span></div>
+        <div class="dash-metric"><span>スケール</span><span class="val">${metrics.pxToCmRatio ? (1/metrics.pxToCmRatio).toFixed(1) + ' px/cm' : '未校正 (自動推定)'}</span></div>
     </div>`;
 
     // Card 2: Weight bearing card
@@ -1171,8 +1446,26 @@ async function prepareAndPrintReport() {
         gridHtml += `</div>`;
     }
 
-    // Card 5 (Full Span): AI Clinical Evaluation Report
-    // Convert markdown headings/bullets to simple HTML for rendering in the overlay
+    // Card 5: Specialist customカルテ inputs (Only for Specialist Mode, otherwise shows as Card 6 read-only)
+    if (isSpecialist) {
+        gridHtml += `
+        <div class="dash-card expert-card" style="grid-column: 1 / -1;">
+            <h3>📝 専門家・指導者カルテ評価入力（事業者専用）</h3>
+            <div class="input-field">
+                <label for="expertCommentInput" style="color:var(--accent-orange);">指導者アセスメント・フィードバック</label>
+                <textarea id="expertCommentInput" style="width:100%; height:80px; background:#0f1c3f; border:1px solid var(--accent-orange); border-radius:8px; color:white; padding:10px; font-family:inherit; resize:none; outline:none; box-sizing:border-box;">${activeExpertComment}</textarea>
+            </div>
+            <div class="input-field">
+                <label for="expertExercisesInput" style="color:var(--accent-orange);">処方ストレッチ・トレーニングリハビリメニュー</label>
+                <textarea id="expertExercisesInput" style="width:100%; height:80px; background:#0f1c3f; border:1px solid var(--accent-orange); border-radius:8px; color:white; padding:10px; font-family:inherit; resize:none; outline:none; box-sizing:border-box;">${activeExpertExercises}</textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+                <button onclick="saveExpertComment()" class="btn primary-btn" style="background:var(--accent-orange); color:black; font-weight:700;">📋 評価をカルテに保存</button>
+            </div>
+        </div>`;
+    }
+
+    // Card 6 (Full Span): AI Clinical Evaluation Report
     var formattedReport = reportMarkdown
         .replace(/### (.*)/g, '<h2>$1</h2>')
         .replace(/## (.*)/g, '<h2>$1</h2>')
@@ -1183,10 +1476,14 @@ async function prepareAndPrintReport() {
 
     gridHtml += `
     <div class="dash-card ai-eval-card" id="aiEvalCard">
-        <h3>🧠 AI 臨床インサイト評価フィードバック</h3>
+        <h3>🧠 AI 臨床インサイト・アセスメント</h3>
         <div class="ai-eval-box" id="aiEvalContent">
             ${formattedReport}
         </div>
+        ${!isSpecialist ? `
+        <div style="text-align:center;">
+            <button id="bookMentorBtn" class="btn primary-btn" style="background:var(--accent-purple); color:white; width:100%; max-width:400px; margin-top:20px; font-weight:700; box-shadow: 0 4px 15px rgba(138,43,226,0.3);" onclick="document.getElementById('mentorBookingModal').style.display='block'">💬 専門家メンターに個別相談する（有料予約）</button>
+        </div>` : ''}
     </div>`;
 
     grid.innerHTML = gridHtml;

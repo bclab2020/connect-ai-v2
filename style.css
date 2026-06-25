@@ -3,7 +3,7 @@
 :root {
     --bg-primary: #050811;
     --bg-secondary: #0a1128;
-    --bg-card: rgba(16, 28, 48, 0.65);
+    --bg-card: rgba(16, 28, 48, 0.7);
     --border-color: rgba(100, 255, 218, 0.15);
     --border-glow: rgba(0, 191, 255, 0.25);
     
@@ -28,6 +28,7 @@ body {
     color: var(--text-primary);
     overflow: hidden;
     height: 100dvh;
+    transition: all 0.3s ease;
 }
 
 /* Viewport & Canvas styling */
@@ -42,6 +43,7 @@ body {
     align-items: center;
     justify-content: center;
     background: radial-gradient(circle at center, #0f1c3f 0%, var(--bg-primary) 100%);
+    transition: all 0.3s ease;
 }
 
 canvas#canvasMP {
@@ -57,13 +59,13 @@ video {
     display: none;
 }
 
-/* Floating HUD elements */
+/* HUD elements */
 .hud-label {
     position: absolute;
     top: 20px;
     left: 20px;
     background: rgba(10, 17, 40, 0.85);
-    padding: 8px 16px;
+    padding: 8px 18px;
     border-radius: 30px;
     font-size: 15px;
     font-weight: 700;
@@ -248,6 +250,7 @@ video {
     display: flex;
     flex-direction: column;
     align-items: center;
+    transition: all 0.3s ease;
 }
 
 /* Top bar buttons */
@@ -255,6 +258,8 @@ video {
     display: flex;
     gap: 12px;
     margin-bottom: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .ui-top-btn {
@@ -262,7 +267,7 @@ video {
     color: var(--accent-blue);
     border: 1.5px solid var(--accent-blue);
     border-radius: 30px;
-    padding: 8px 24px;
+    padding: 8px 20px;
     font-weight: 600;
     cursor: pointer;
     backdrop-filter: blur(10px);
@@ -411,6 +416,7 @@ select:hover {
     color: var(--text-secondary);
     font-size: 12px;
     margin-right: 5px;
+    white-space: nowrap;
 }
 
 .input-group .suffix {
@@ -559,21 +565,37 @@ select:hover {
     max-width: 450px;
 }
 
+/* Override specialist login border color to orange */
+#specialistLoginModal {
+    border-color: var(--accent-orange);
+    box-shadow: 0 20px 50px rgba(255, 145, 0, 0.25);
+}
+
+/* Override mentor booking border color to purple */
+#mentorBookingModal {
+    border-color: var(--accent-purple);
+    box-shadow: 0 20px 50px rgba(138, 43, 226, 0.25);
+    max-width: 500px;
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1.5px solid rgba(100, 255, 218, 0.15);
+    border-bottom: 1.5px solid rgba(255, 255, 255, 0.1);
     padding-bottom: 12px;
     margin-bottom: 20px;
 }
 
 .modal-header h3 {
     margin: 0;
-    color: var(--accent-teal);
+    color: var(--text-primary);
     font-size: 18px;
     font-weight: 700;
 }
+
+#specialistLoginModal .modal-header h3 { color: var(--accent-orange); }
+#mentorBookingModal .modal-header h3 { color: var(--accent-purple); }
 
 .close-btn {
     background: transparent;
@@ -608,10 +630,13 @@ select:hover {
 .input-field label {
     font-size: 12px;
     font-weight: 600;
-    color: var(--accent-teal);
+    color: var(--text-primary);
 }
 
-.input-field input {
+#specialistLoginModal .input-field label { color: var(--accent-orange); }
+#mentorBookingModal .input-field label { color: var(--accent-purple); }
+
+.input-field input, .input-field select {
     background: #0f1c3f;
     color: white;
     border: 1px solid rgba(255,255,255,0.1);
@@ -620,13 +645,14 @@ select:hover {
     font-size: 14px;
 }
 
-.input-field input:focus {
-    border-color: var(--accent-teal);
+.input-field input:focus, .input-field select:focus {
+    border-color: var(--accent-blue);
 }
 
 .help-text {
     font-size: 10px !important;
     color: #566285 !important;
+    margin: 10px 0 0 0;
 }
 
 .modal-footer {
@@ -646,6 +672,18 @@ select:hover {
 
 .primary-btn:hover {
     box-shadow: 0 6px 20px rgba(100, 255, 218, 0.4);
+}
+
+#specialistLoginModal .primary-btn {
+    background: linear-gradient(135deg, var(--accent-orange) 0%, #e65100 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(255, 145, 0, 0.25);
+}
+
+#mentorBookingModal .primary-btn {
+    background: linear-gradient(135deg, var(--accent-purple) 0%, #6200ea 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(138, 43, 226, 0.25);
 }
 
 /* History Drawer Panel */
@@ -763,7 +801,7 @@ select:hover {
     color: black;
 }
 
-/* Dashboard Report Overlay (Full Screen View) */
+/* Dashboard Report Overlay */
 #dashboardOverlay {
     position: fixed;
     top: 0;
@@ -846,6 +884,10 @@ select:hover {
     border-top: 1px solid rgba(100, 255, 218, 0.1);
 }
 
+.dash-card.expert-card {
+    border-top-color: var(--accent-orange);
+}
+
 .dash-card h3 {
     color: var(--accent-teal);
     margin-top: 0;
@@ -854,6 +896,10 @@ select:hover {
     font-size: 17px;
     margin-bottom: 18px;
     font-weight: 600;
+}
+
+.dash-card.expert-card h3 {
+    color: var(--accent-orange);
 }
 
 .dash-metric {
@@ -926,6 +972,82 @@ select:hover {
     margin: 5px 0 10px 0;
 }
 
+/* Specialist Mode UI layout modification for PC widescreen */
+@media (min-width: 1024px) {
+    /* When specialist mode is unlocked, split layout */
+    body.specialist-unlocked {
+        overflow: hidden;
+    }
+    
+    body.specialist-unlocked .view-port {
+        width: 62vw;
+        right: auto;
+        left: 0;
+        border-right: 2.5px solid var(--accent-orange);
+    }
+    
+    body.specialist-unlocked #uiFloatingLayer {
+        position: fixed;
+        left: auto;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 38vw;
+        height: 100vh;
+        transform: none;
+        background: #070d1e;
+        border-left: 1px solid rgba(255,255,255,0.05);
+        padding: 24px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+        z-index: 100;
+        box-shadow: -10px 0 40px rgba(0,0,0,0.6);
+        max-width: none;
+    }
+    
+    body.specialist-unlocked #controlsBox {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    body.specialist-unlocked .ui-top-buttons {
+        margin-bottom: 24px;
+    }
+
+    body.specialist-unlocked .controls {
+        flex-direction: column;
+        align-items: stretch;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        gap: 18px;
+    }
+
+    body.specialist-unlocked button, 
+    body.specialist-unlocked select, 
+    body.specialist-unlocked .input-group {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    body.specialist-unlocked #timelineSlider {
+        max-width: none;
+    }
+
+    body.specialist-unlocked .radar-wrapper {
+        top: auto;
+        bottom: 20px;
+        right: 40vw; /* Place next to the divider */
+        z-index: 200;
+    }
+}
+
 /* Print layout optimizations */
 @media print {
     body {
@@ -935,7 +1057,7 @@ select:hover {
         font-family: sans-serif;
     }
     
-    #uiFloatingLayer, #tiltPanel, #dpadPanel, #historyPanel, .view-port, #apiSettingPanel {
+    #uiFloatingLayer, #tiltPanel, #dpadPanel, #historyPanel, .view-port, #apiSettingPanel, #specialistLoginModal, #mentorBookingModal {
         display: none !important;
     }
     

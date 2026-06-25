@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CONNECT AI - Premium Biomechanics & Posture Analytics V2</title>
+    <title>ÉLITE PERFORMANCE - Athletecore Pro</title>
+    
+    <!-- PWA settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#050811">
+    <link rel="apple-touch-icon" href="icon-192.png">
     
     <!-- TensorFlow.js and MediaPipe scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
@@ -24,12 +29,14 @@
     <canvas id="canvasMP"></canvas>
     
     <!-- HUD details -->
-    <div class="hud-label">CONNECT AI <span class="badge">V2.0 PRO</span></div>
+    <div class="hud-label" id="appHeaderTitle">ÉLITE PERFORMANCE <span class="badge">Precision in Motion</span></div>
+    
     <div class="info-panel" id="infoPanel">
         <div class="status-indicator"></div>
         <span id="scaleStatus">📏 スケール未校正</span><br>
         <span id="pelvicStatus">📐 骨盤傾斜: 0°</span>
     </div>
+    
     <div id="timerDisplay" class="timer-display">REC 10.0s</div>
     
     <!-- COP Radar -->
@@ -89,6 +96,64 @@
     </div>
 </div>
 
+<!-- Specialist Mode Login Modal -->
+<div id="specialistLoginModal" class="modal-panel">
+    <div class="modal-header">
+        <h3>🔒 専門家モード認証</h3>
+        <button id="closeLoginBtn" class="close-btn">✖</button>
+    </div>
+    <div class="modal-body">
+        <p>事業者・専門家向けの分析カルテ作成・骨格補正ツールを開放します。</p>
+        <div class="input-field">
+            <label for="specialistId">専門家ID</label>
+            <input type="text" id="specialistId" placeholder="IDを入力してください" value="specialist">
+        </div>
+        <div class="input-field">
+            <label for="specialistPass">パスワード</label>
+            <input type="password" id="specialistPass" placeholder="パスワードを入力してください">
+        </div>
+        <p class="error-text" id="loginErrorMsg" style="color:var(--accent-red); font-size:12px; display:none; margin-top:5px;">⚠️ IDまたはパスワードが正しくありません。</p>
+    </div>
+    <div class="modal-footer">
+        <button id="submitLoginBtn" class="btn primary-btn">ロック解除</button>
+    </div>
+</div>
+
+<!-- Mentor Paid Session Booking Modal -->
+<div id="mentorBookingModal" class="modal-panel">
+    <div class="modal-header">
+        <h3>💬 専門家メンター個別指導セッション予約（有料）</h3>
+        <button id="closeBookingBtn" class="close-btn">✖</button>
+    </div>
+    <div class="modal-body">
+        <p>測定データとAIレポートだけでは解決しない課題や、選手特有のトレーニング作成を、登録専門家がオンラインビデオで直接指導します。</p>
+        
+        <div class="input-field">
+            <label for="mentorSelect">メンターを選択</label>
+            <select id="mentorSelect" style="width:100%;">
+                <option value="physio_tanaka">田中 誠 (理学療法士 / 成長期脊柱アライメント専門)</option>
+                <option value="trainer_sato">佐藤 翼 (JASAアスレティックトレーナー / 投球動作分析・OHS)</option>
+                <option value="sprint_suzuki">鈴木 翔 (陸上100m元選手 / ジュニアスプリント・重心軌跡)</option>
+            </select>
+        </div>
+        
+        <div class="input-field">
+            <label for="bookingDate">希望日時</label>
+            <input type="datetime-local" id="bookingDate">
+        </div>
+        
+        <div class="input-field">
+            <label for="bookingInquiry">特に相談したいこと</label>
+            <textarea id="bookingInquiry" placeholder="例: 反り腰を指摘されましたが、サッカーのダッシュ時に痛みがあります。改善ストレッチの方法を詳しく教えてほしいです。" style="width:100%; height:70px; background:#0f1c3f; border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:white; padding:10px; font-family:inherit; resize:none; outline:none; box-sizing:border-box;"></textarea>
+        </div>
+        
+        <p class="help-text">※個別セッションは1枠45分/¥5,500(税込)です。予約完了後、担当メンターから確認メールが届きます。</p>
+    </div>
+    <div class="modal-footer">
+        <button id="submitBookingBtn" class="btn primary-btn">個別予約を実行</button>
+    </div>
+</div>
+
 <!-- History Drawer Panel -->
 <div id="historyPanel">
     <div class="history-header">
@@ -102,8 +167,8 @@
 <div id="dashboardOverlay">
     <div class="dash-header">
         <div>
-            <h2 class="dash-title">📊 統合バイオメカニクス評価レポート</h2>
-            <div style="color:#8892b0; font-size: 14px; margin-top:5px;">CONNECT AI Posture & Movement Analytics</div>
+            <h2 class="dash-title" id="dashReportTitle">📊 統合バイオメカニクス評価レポート</h2>
+            <div style="color:#8892b0; font-size: 14px; margin-top:5px;" id="dashReportSub">ÉLITE PERFORMANCE - Athletecore Pro</div>
         </div>
         <div class="dash-actions">
             <button class="dash-print" onclick="window.print()">📄 PDF保存・印刷</button>
@@ -119,13 +184,30 @@
         <button id="toggleUiBtn" class="ui-top-btn">🔽 UIを隠す</button>
         <button id="showHistoryBtn" class="ui-top-btn">📂 履歴を開く</button>
         <button id="showApiBtn" class="ui-top-btn">⚙️ API設定</button>
-        <button id="showDashboardBtn" class="ui-top-btn dash-top-btn" onclick="prepareAndPrintReport()">📊 ダッシュボード</button>
+        
+        <!-- Specialist switch locks -->
+        <button id="modeUnlockBtn" class="ui-top-btn" style="border-color:var(--accent-orange); color:var(--accent-orange);">🔒 専門家ログイン</button>
+        <button id="logoutBtn" class="ui-top-btn" style="display:none; background:rgba(255, 82, 82, 0.1); border-color:var(--accent-red); color:var(--accent-red);">🔓 ログアウト</button>
+        
+        <button id="showDashboardBtn" class="ui-top-btn dash-top-btn" onclick="prepareAndPrintReport()">📊 レポート表示</button>
     </div>
     
     <div id="controlsBox">
         <div class="controls" id="mainControls">
+            
+            <div class="input-group" id="nameInputGroup">
+                <span class="prefix">選手名/ID</span>
+                <input type="text" id="patientName" placeholder="名前またはID" style="background:transparent; border:none; color:var(--accent-teal); font-weight:700; width:110px; outline:none; padding:4px 0;">
+            </div>
+
+            <!-- Specialist File Upload logic (hidden by default, shown to specialists) -->
+            <div class="input-group" id="importJsonGroup" style="display:none; border-color:var(--accent-orange);">
+                <span class="prefix">JSON読込</span>
+                <input type="file" id="importSessionJson" accept=".json" style="display:none;">
+                <button onclick="document.getElementById('importSessionJson').click()" style="background:transparent; color:var(--accent-orange); border:none; padding:4px 0; font-size:12px; cursor:pointer;">📁 読込</button>
+            </div>
+
             <div class="control-group">
-                <label for="videoSource">映像入力</label>
                 <select id="videoSource"><option value="">カメラ検索中...</option></select>
             </div>
             
@@ -180,7 +262,11 @@
             <input type="range" id="timelineSlider" min="0" max="100" value="0">
             <span id="frameCounter">0 / 0</span>
             <button id="editFrameBtn" class="orange-btn">✂️ 微調整</button>
+            
+            <!-- Export JSON for Specialist to comment, and export WebM for client -->
+            <button id="exportSessionJsonBtn" class="purple-btn" style="display:none;">📤 JSON書出</button>
             <button id="exportVideoBtn" class="blue-btn">🎥 動画出力</button>
+            
             <button id="downloadCsvBtn" class="green-btn" disabled>📊 CSV</button>
             <button id="printReportBtn" class="orange-btn" onclick="prepareAndPrintReport()">📄 レポート</button>
         </div>
@@ -189,6 +275,17 @@
 
 <!-- Extra hidden canvas for combining images during WebM conversion/captures -->
 <canvas id="canvasCombined" style="display:none;"></canvas>
+
+<!-- PWA Service worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => console.log('ServiceWorker registered successfully with scope:', reg.scope))
+      .catch((err) => console.error('ServiceWorker registration failed:', err));
+  });
+}
+</script>
 
 <!-- App Scripts -->
 <script src="db.js"></script>
