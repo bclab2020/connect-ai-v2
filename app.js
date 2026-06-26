@@ -679,6 +679,16 @@ function checkDeviceType() {
     if (container) {
         container.style.display = (isMobileView && isRunning && appMode === 'camera') ? 'flex' : 'none';
     }
+    
+    // スマホ起動時・リサイズ時に自動でUIコントロールを折りたたみ、画面をすっきりさせる
+    if (isMobileView) {
+        var box = document.getElementById('controlsBox');
+        var btn = document.getElementById('toggleUiBtn');
+        if (box && btn && box.style.display !== 'none' && !isRecording && appMode === 'camera') {
+            box.style.display = 'none';
+            btn.innerText = '🔼 UIを表示';
+        }
+    }
 }
 window.addEventListener('resize', checkDeviceType);
 
