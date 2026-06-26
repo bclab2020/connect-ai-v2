@@ -718,9 +718,17 @@ function requestDeviceOrientationPermission() {
     }
 }
 
+// Gyro smoothing filter state (V2.3.1)
+var smoothOrientation = { beta: 90, gamma: 0 };
+
 function handleOrientation(event) {
-    if (event.beta !== null) deviceOrientation.beta = event.beta;
-    if (event.gamma !== null) deviceOrientation.gamma = event.gamma;
+    if (event.beta !== null) {
+        // Low-pass filter to smooth hand jitter (80% old value, 20% new value)
+        smoothOrientation.beta = smoothOrientation.beta * 0.8 + event.beta * 0.2;
+    }
+    if (event.gamma !== null) {
+        smoothOrientation.gamma = smoothOrientation.gamma * 0.8 + event.gamma * 0.2;
+    }
     updateDigitalLevel();
 }
 
@@ -729,8 +737,8 @@ function updateDigitalLevel() {
     var container = document.getElementById('gyroLevelContainer');
     if (!dot || !container) return;
 
-    var pitchErr = deviceOrientation.beta - 90; // 90 degrees is straight vertical
-    var rollErr = deviceOrientation.gamma; // 0 degrees is horizontal alignment
+    var pitchErr = smoothOrientation.beta - 90; // Pitch error (vertical offset)
+    var rollErr = smoothOrientation.gamma; // Roll error (horizontal tilt)
 
     // Scale errors for visualization inside circular HUD
     var scaleFactor = 3.5;
@@ -746,14 +754,16 @@ function updateDigitalLevel() {
 
     dot.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
 
-    // Aligned if both pitch & roll errors are within 3 degrees
-    if (Math.abs(pitchErr) <= 3 && Math.abs(rollErr) <= 3) {
+    // Relaxed tolerances:
+    // Pitch (front/back) is allowed within ±15 degrees (makes it easy to view screen while standing)
+    // Roll (left/right) is allowed within ±5 degrees (to keep camera level and prevent perspective bias)
+    if (Math.abs(pitchErr) <= 15 && Math.abs(rollErr) <= 5) {
         container.classList.add('aligned');
-        document.getElementById('gyroLevelStatus').innerText = "📐 垂直OK！全身を収めてください";
+        document.getElementById('gyroLevelStatus').innerText = "📐 垂直・水平OK！全身を収めてください";
         isDeviceVertical = true;
     } else {
         container.classList.remove('aligned');
-        document.getElementById('gyroLevelStatus').innerText = "📐 カメラを垂直に保ってください";
+        document.getElementById('gyroLevelStatus').innerText = "📐 カメラを垂直・水平に保ってください";
         isDeviceVertical = false;
         resetAutoRecCountdown();
     }
