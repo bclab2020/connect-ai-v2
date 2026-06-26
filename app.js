@@ -279,9 +279,6 @@ importSessionJson.onchange = function(event) {
             activePatientName = data.patientName || "ゲスト";
             patientNameInput.value = activePatientName;
             
-            currentTab = data.mode || "front";
-            document.getElementById('modeSelect').value = currentTab;
-            
             poseDataLog = data.poseData;
             playbackDataMP = poseDataLog;
             pxToCmRatio = data.pxToCmRatio || null;
@@ -294,8 +291,6 @@ importSessionJson.onchange = function(event) {
             
             activeExpertComment = data.expertComment || "";
             activeExpertExercises = data.expertExercises || "";
-            
-            swayHistoryMP = [];
             
             if (playbackDataMP.length > 1) { 
                 playbackBaseTime = playbackDataMP[0].time; 
@@ -310,6 +305,8 @@ importSessionJson.onchange = function(event) {
             document.getElementById('timelineSlider').value = 0; 
             
             appMode = 'playback'; 
+            updateModeUI(data.mode || "front");
+            
             document.getElementById('mainControls').style.display = 'none'; 
             document.getElementById('playbackControls').style.display = 'flex';
             document.getElementById('downloadCsvBtn').disabled = false;
@@ -383,20 +380,7 @@ closeHistoryBtn.onclick = function() {
 
 // Mode Select Change
 document.getElementById('modeSelect').onchange = function(e) {
-    currentTab = e.target.value;
-    recordingDuration = DURATION_MAP[currentTab] || 10000;
-    durationSelect.value = recordingDuration.toString();
-    
-    // Toggle pelvic tilt panel for side views
-    if (currentTab === 'l_side' || currentTab === 'r_side') {
-        tiltPanel.style.display = 'block';
-    } else {
-        tiltPanel.style.display = 'none';
-    }
-    
-    // Clear radar for static/dynamic modes
-    swayHistoryMP = [];
-    biomechanics.clearRadar(ctxRadarMP, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
+    updateModeUI(e.target.value);
 };
 
 // Calibrate Mat Click Handler
@@ -675,6 +659,36 @@ var makeRadarDraggable = function() {
 // ==========================================================================
 // Smartphone Orientation & Auto-REC Utilities (V2.3)
 // ==========================================================================
+
+function updateModeUI(mode) {
+    currentTab = mode;
+    recordingDuration = DURATION_MAP[currentTab] || 10000;
+    
+    var durationSelect = document.getElementById('durationSelect');
+    if (durationSelect) durationSelect.value = recordingDuration.toString();
+    
+    var modeSelect = document.getElementById('modeSelect');
+    if (modeSelect) modeSelect.value = currentTab;
+    
+    // Toggle pelvic tilt panel
+    var tiltPanel = document.getElementById('tiltPanel');
+    if (tiltPanel) {
+        var shouldShowTilt = (currentTab === 'l_side' || currentTab === 'r_side');
+        if (shouldShowTilt) {
+            if (isMobileView) {
+                // Mobile: Hide during camera view to keep canvas visible, show only in playback/edit
+                tiltPanel.style.display = (appMode === 'playback') ? 'block' : 'none';
+            } else {
+                tiltPanel.style.display = 'block';
+            }
+        } else {
+            tiltPanel.style.display = 'none';
+        }
+    }
+    
+    swayHistoryMP = [];
+    biomechanics.clearRadar(ctxRadarMP, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
+}
 
 function checkDeviceType() {
     isMobileView = window.innerWidth < 768;
@@ -981,8 +995,6 @@ window.loadSession = async function(id) {
             activePatientName = session.patientName || "ゲスト";
             patientNameInput.value = activePatientName;
             
-            document.getElementById('modeSelect').value = session.mode;
-            currentTab = session.mode;
             poseDataLog = session.poseData;
             pxToCmRatio = session.pxToCmRatio || null;
             estimatedPelvicTilt = session.pelvicTilt || 0;
@@ -996,9 +1008,7 @@ window.loadSession = async function(id) {
             pelvicTiltSlider.value = estimatedPelvicTilt;
             tiltValDisplay.innerText = estimatedPelvicTilt === 0 ? "0°" : (estimatedPelvicTilt > 0 ? "+" + estimatedPelvicTilt + "°" : estimatedPelvicTilt + "°");
             
-            swayHistoryMP = [];
-            
-            playbackDataMP = poseDataLog.filter(d => d.mode === currentTab);
+            playbackDataMP = poseDataLog.filter(d => d.mode === session.mode);
             if (playbackDataMP.length === 0) playbackDataMP = poseDataLog; 
             
             historyPanel.style.display = 'none';
@@ -1015,6 +1025,8 @@ window.loadSession = async function(id) {
             document.getElementById('timelineSlider').value = 0; 
             
             appMode = 'playback'; 
+            updateModeUI(session.mode);
+            
             document.getElementById('mainControls').style.display = 'none'; 
             document.getElementById('playbackControls').style.display = 'flex';
             document.getElementById('downloadCsvBtn').disabled = false;
@@ -1460,6 +1472,8 @@ async function stopRecording() {
 
     staticBackgroundData = ctxMP.getImageData(0, 0, canvasMP.width, canvasMP.height);
     isPausedForEdit = true;
+    appMode = 'playback';
+    updateModeUI(currentTab);
 
     activeSessionId = "sess_" + Date.now();
     activePatientName = patientNameInput.value.trim() || "ゲスト";
@@ -1510,6 +1524,7 @@ function exitPlaybackMode() {
     isEditingPlaybackFrame = false;
     
     checkDeviceType();
+    updateModeUI(currentTab);
     
     document.getElementById('dpadPanel').style.display = 'none';
     document.getElementById('playbackControls').style.display = 'none';

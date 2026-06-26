@@ -1240,7 +1240,8 @@ select:hover {
 .recording-active #tiltPanel,
 .recording-active #radarWrapperMP,
 .recording-active .hud-label,
-.recording-active .info-panel {
+.recording-active .info-panel,
+.recording-active #gyroLevelContainer {
     opacity: 0 !important;
     pointer-events: none !important;
     transition: opacity 0.5s ease !important;
