@@ -1416,6 +1416,15 @@ select:hover {
         align-items: center;
     }
 
+    #settingsWrapper {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        width: 100% !important;
+        justify-content: space-between;
+        align-items: center;
+    }
+
     /* 入力グループをコンパクトにして回り込み */
     .input-group {
         flex: 1 1 45%; /* 横に2個並ぶように */

@@ -217,65 +217,67 @@
     
     <div id="controlsBox">
         <div class="controls" id="mainControls">
-            
-            <div class="input-group" id="nameInputGroup">
-                <span class="prefix">選手名/ID</span>
-                <input type="text" id="patientName" placeholder="名前またはID" style="background:transparent; border:none; color:var(--accent-teal); font-weight:700; width:110px; outline:none; padding:4px 0;">
-            </div>
+            <!-- settingsWrapper container for hiding settings on mobile while keeping action buttons visible -->
+            <div id="settingsWrapper" style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; align-items: center; width: 100%;">
+                <div class="input-group" id="nameInputGroup">
+                    <span class="prefix">選手名/ID</span>
+                    <input type="text" id="patientName" placeholder="名前またはID" style="background:transparent; border:none; color:var(--accent-teal); font-weight:700; width:110px; outline:none; padding:4px 0;">
+                </div>
 
-            <!-- Specialist File Upload logic (hidden by default, shown to specialists) -->
-            <div class="input-group" id="importJsonGroup" style="display:none; border-color:var(--accent-orange);">
-                <span class="prefix">JSON読込</span>
-                <input type="file" id="importSessionJson" accept=".json" style="display:none;">
-                <button onclick="document.getElementById('importSessionJson').click()" style="background:transparent; color:var(--accent-orange); border:none; padding:4px 0; font-size:12px; cursor:pointer;">📁 読込</button>
-            </div>
+                <!-- Specialist File Upload logic (hidden by default, shown to specialists) -->
+                <div class="input-group" id="importJsonGroup" style="display:none; border-color:var(--accent-orange);">
+                    <span class="prefix">JSON読込</span>
+                    <input type="file" id="importSessionJson" accept=".json" style="display:none;">
+                    <button onclick="document.getElementById('importSessionJson').click()" style="background:transparent; color:var(--accent-orange); border:none; padding:4px 0; font-size:12px; cursor:pointer;">📁 読込</button>
+                </div>
 
-            <div class="control-group">
-                <select id="videoSource"><option value="">カメラ検索中...</option></select>
+                <div class="control-group">
+                    <select id="videoSource"><option value="">カメラ検索中...</option></select>
+                </div>
+                
+                <div class="input-group">
+                    <span class="prefix">身長</span>
+                    <input type="number" id="patientHeight" value="170" min="100" max="220">
+                    <span class="suffix">cm</span>
+                </div>
+                <div class="input-group">
+                    <span class="prefix">足ｻｲｽﾞ</span>
+                    <input type="number" id="footSize" value="25" min="15" max="40" step="0.5">
+                    <span class="suffix">cm</span>
+                </div>
+                
+                <button id="calibrateMatBtn" class="purple-btn">📏 マット校正(45cm)</button>
+
+                <select id="modeSelect" class="mode-dropdown">
+                    <optgroup label="■ 静止姿勢アライメント">
+                        <option value="front" selected>🧍 前面</option>
+                        <option value="back">🧍 後面</option>
+                        <option value="l_side">🧍 左側面</option>
+                        <option value="r_side">🧍 右側面</option>
+                    </optgroup>
+                    <optgroup label="■ 動的機能評価">
+                        <option value="dyn_overhead">🏋️ OHS [前面]</option>
+                        <option value="dyn_overhead_side">🏋️ OHS [側面]</option>
+                        <option value="dyn_single_r">🦵 片脚バランス [右軸]</option>
+                        <option value="dyn_single_l">🦵 片脚バランス [左軸]</option>
+                        <option value="dyn_flex_fwd">🙇 立位体前屈</option>
+                        <option value="dyn_flex_bwd">🤸 立位体後屈</option>
+                        <option value="dyn_shoulder_r">👐 肩複合可動性 [右上]</option>
+                        <option value="dyn_shoulder_l">👐 肩複合可動性 [左上]</option>
+                    </optgroup>
+                </select>
+                
+                <select id="durationSelect">
+                    <option value="5000">⏱️ 5秒</option>
+                    <option value="10000" selected>⏱️ 10秒</option>
+                    <option value="15000">⏱️ 15秒</option>
+                    <option value="20000">⏱️ 20秒</option>
+                </select>
+                
+                <label class="toggle-label"><input type="checkbox" id="showSwayAlert" checked> 警告</label>
             </div>
             
             <button id="startBtn" disabled>⏳ 起動準備中...</button>
-            
-            <div class="input-group">
-                <span class="prefix">身長</span>
-                <input type="number" id="patientHeight" value="170" min="100" max="220">
-                <span class="suffix">cm</span>
-            </div>
-            <div class="input-group">
-                <span class="prefix">足ｻｲｽﾞ</span>
-                <input type="number" id="footSize" value="25" min="15" max="40" step="0.5">
-                <span class="suffix">cm</span>
-            </div>
-            
-            <button id="calibrateMatBtn" class="purple-btn">📏 マット校正(45cm)</button>
-
-            <select id="modeSelect" class="mode-dropdown">
-                <optgroup label="■ 静止姿勢アライメント">
-                    <option value="front" selected>🧍 前面</option>
-                    <option value="back">🧍 後面</option>
-                    <option value="l_side">🧍 左側面</option>
-                    <option value="r_side">🧍 右側面</option>
-                </optgroup>
-                <optgroup label="■ 動的機能評価">
-                    <option value="dyn_overhead">🏋️ OHS [前面]</option>
-                    <option value="dyn_overhead_side">🏋️ OHS [側面]</option>
-                    <option value="dyn_single_r">🦵 片脚バランス [右軸]</option>
-                    <option value="dyn_single_l">🦵 片脚バランス [左軸]</option>
-                    <option value="dyn_flex_fwd">🙇 立位体前屈</option>
-                    <option value="dyn_flex_bwd">🤸 立位体後屈</option>
-                    <option value="dyn_shoulder_r">👐 肩複合可動性 [右上]</option>
-                    <option value="dyn_shoulder_l">👐 肩複合可動性 [左上]</option>
-                </optgroup>
-            </select>
-            
-            <select id="durationSelect">
-                <option value="5000">⏱️ 5秒</option>
-                <option value="10000" selected>⏱️ 10秒</option>
-                <option value="15000">⏱️ 15秒</option>
-                <option value="20000">⏱️ 20秒</option>
-            </select>
-            
-            <label class="toggle-label"><input type="checkbox" id="showSwayAlert" checked> 警告</label>
             <button id="recBtn" disabled>🔴 録画スタート</button>
         </div>
 

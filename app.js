@@ -139,12 +139,15 @@ var exportSessionJsonBtn = document.getElementById('exportSessionJsonBtn');
 
 // UI Toggles
 toggleUiBtn.onclick = function() {
-    if (controlsBox.style.display === 'none') {
-        controlsBox.style.display = 'block';
-        toggleUiBtn.innerText = '🔽 UIを隠す';
-    } else {
-        controlsBox.style.display = 'none';
-        toggleUiBtn.innerText = '🔼 UIを表示';
+    var settings = document.getElementById('settingsWrapper');
+    if (settings) {
+        if (settings.style.display === 'none') {
+            settings.style.display = 'flex';
+            toggleUiBtn.innerText = '🔽 UIを隠す';
+        } else {
+            settings.style.display = 'none';
+            toggleUiBtn.innerText = '🔼 UIを表示';
+        }
     }
 };
 
@@ -680,12 +683,12 @@ function checkDeviceType() {
         container.style.display = (isMobileView && isRunning && appMode === 'camera') ? 'flex' : 'none';
     }
     
-    // スマホ起動時・リサイズ時に自動でUIコントロールを折りたたみ、画面をすっきりさせる
+    // スマホ起動時・リサイズ時に自動でUI設定を折りたたみ、主要ボタンは残して画面をすっきりさせる
     if (isMobileView) {
-        var box = document.getElementById('controlsBox');
+        var settings = document.getElementById('settingsWrapper');
         var btn = document.getElementById('toggleUiBtn');
-        if (box && btn && box.style.display !== 'none' && !isRecording && appMode === 'camera') {
-            box.style.display = 'none';
+        if (settings && btn && settings.style.display !== 'none' && !isRecording && appMode === 'camera') {
+            settings.style.display = 'none';
             btn.innerText = '🔼 UIを表示';
         }
     }
@@ -1241,6 +1244,16 @@ startBtn.onclick = async function() {
                 }
             }
             checkDeviceType();
+            
+            // スマホの場合、カメラ起動後に自動で入力パネル（settingsWrapper）を閉じて映像を全画面に見せる（録画ボタンなどは残す）
+            if (isMobileView) {
+                var settings = document.getElementById('settingsWrapper');
+                var btn = document.getElementById('toggleUiBtn');
+                if (settings && btn) {
+                    settings.style.display = 'none';
+                    btn.innerText = '🔼 UIを表示';
+                }
+            }
             
             render(currentSession); 
         };
