@@ -1147,3 +1147,331 @@ select:hover {
         border-bottom: 1px solid #ccc;
     }
 }
+
+/* ==========================================================================
+   Smartphone Responsive Layout (V2.3)
+   ========================================================================== */
+
+/* スマホ用デジタル水準器 */
+.gyro-level-container {
+    position: absolute;
+    top: 35%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 140px;
+    height: 140px;
+    z-index: 800;
+    pointer-events: none; /* タップ阻害しない */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.level-circle {
+    width: 80px;
+    height: 80px;
+    border: 2px dashed rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    position: relative;
+    transition: border-color 0.3s ease;
+}
+
+.level-dot {
+    width: 14px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+/* 垂直状態になった時のアクティブスタイル */
+.gyro-level-container.aligned .level-circle {
+    border: 3px solid var(--accent-green);
+    border-style: solid;
+    animation: pulse-green 1s infinite alternate;
+}
+.gyro-level-container.aligned .level-dot {
+    background: var(--accent-green);
+}
+
+.level-status {
+    margin-top: 12px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* 自動録画用カウントダウン */
+.auto-rec-countdown {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 80px;
+    font-weight: 900;
+    color: var(--accent-red);
+    text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+    z-index: 900;
+    pointer-events: none;
+    animation: countdown-zoom 1s infinite;
+}
+
+@keyframes countdown-zoom {
+    0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+    30% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+    80% { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+}
+
+@keyframes pulse-green {
+    0% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.4); }
+    100% { box-shadow: 0 0 0 10px rgba(0, 230, 118, 0); }
+}
+
+/* 撮影中のUI非表示フェードアウト */
+.recording-active #uiFloatingLayer,
+.recording-active #tiltPanel,
+.recording-active #radarWrapperMP,
+.recording-active .hud-label,
+.recording-active .info-panel {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.5s ease !important;
+}
+
+/* スマホ表示 (768px未満) の場合のレスポンシブスタイル */
+@media (max-width: 767px) {
+    body {
+        overflow: hidden;
+    }
+    
+    .view-port {
+        width: 100vw !important;
+        height: 100dvh !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        border: none !important;
+        z-index: 5;
+    }
+
+    /* ビデオプレビューをスマホに最適化 */
+    #video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* 全画面で表示 */
+    }
+
+    #canvasMP {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* ヘッダータイトルをスマホ用に小さく */
+    .hud-label {
+        font-size: 13px;
+        top: 15px;
+        left: 15px;
+        background: rgba(5, 8, 17, 0.65);
+        backdrop-filter: blur(5px);
+        padding: 6px 12px;
+        border-radius: 8px;
+        max-width: 80%;
+    }
+
+    /* 情報ステータス */
+    .info-panel {
+        top: 60px;
+        left: 15px;
+        font-size: 11px;
+        background: rgba(5, 8, 17, 0.65);
+        backdrop-filter: blur(5px);
+        padding: 8px 12px;
+    }
+
+    /* 録画タイマー */
+    .timer-display {
+        top: 15px;
+        right: 15px;
+        font-size: 14px;
+        padding: 6px 12px;
+    }
+
+    /* COPレーダーをスマホで縮小かつ右上に配置 (邪魔にならない場所) */
+    .radar-wrapper {
+        top: 110px;
+        right: 15px;
+        bottom: auto;
+        left: auto;
+        width: 100px;
+        height: 100px;
+        padding: 6px;
+        background: rgba(5, 8, 17, 0.65);
+        backdrop-filter: blur(5px);
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    
+    .radar-title {
+        font-size: 8px;
+        margin-bottom: 2px;
+    }
+    
+    .radar-box {
+        width: 88px !important;
+        height: 88px !important;
+    }
+
+    /* 骨盤傾斜パネルをスマホ向けに下部へフローティング */
+    #tiltPanel {
+        position: absolute;
+        bottom: 160px; /* 操作ボタン群の上に浮かせる */
+        left: 15px;
+        right: 15px;
+        width: auto;
+        background: rgba(5, 8, 17, 0.75);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px;
+        padding: 12px;
+        z-index: 100;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    
+    .panel-header {
+        font-size: 11px;
+    }
+    .slider-labels {
+        font-size: 9px;
+    }
+    .tilt-val {
+        font-size: 11px;
+    }
+
+    /* スマホ用のフローティングコントロールボックス */
+    #uiFloatingLayer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        background: linear-gradient(to top, rgba(5,8,17,0.98) 0%, rgba(5,8,17,0.8) 70%, rgba(5,8,17,0) 100%);
+        padding: 15px 15px 30px 15px; /* iOSのセーフエリアを考慮した最下部の余白 */
+        box-sizing: border-box;
+        z-index: 150;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: none;
+        border: none;
+        box-shadow: none;
+    }
+
+    /* トップボタン群（履歴やAPI）をスマホではスクロール可能かコンパクトに */
+    .ui-top-buttons {
+        display: flex;
+        overflow-x: auto;
+        gap: 8px;
+        padding-bottom: 5px;
+        width: 100%;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .ui-top-buttons::-webkit-scrollbar {
+        display: none; /* スクロールバー非表示 */
+    }
+
+    .ui-top-btn {
+        flex: 0 0 auto;
+        font-size: 11px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        background: rgba(255,255,255,0.05);
+        backdrop-filter: blur(5px);
+    }
+
+    /* 操作コントロール */
+    #controlsBox {
+        width: 100%;
+    }
+
+    .controls {
+        flex-wrap: wrap;
+        gap: 8px;
+        background: transparent;
+        border: none;
+        padding: 0;
+        box-shadow: none;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* 入力グループをコンパクトにして回り込み */
+    .input-group {
+        flex: 1 1 45%; /* 横に2個並ぶように */
+        min-width: 100px;
+        font-size: 11px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+    
+    .input-group input {
+        font-size: 11px;
+    }
+
+    /* セレクトボックスやボタン */
+    .controls select, .mode-dropdown, #durationSelect {
+        flex: 1 1 45%;
+        font-size: 11px;
+        padding: 6px 8px;
+        height: auto;
+        border-radius: 8px;
+        background: rgba(5, 8, 17, 0.8);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    #videoSource {
+        flex: 1 1 100%; /* カメラ選択は横幅いっぱいに */
+        font-size: 11px;
+    }
+
+    /* 主要アクションボタンを際立たせる */
+    #startBtn, #recBtn, #calibrateMatBtn, #playbackControls button {
+        flex: 1 1 100%; /* 録画ボタンなどは横幅いっぱいに */
+        font-size: 14px;
+        padding: 12px;
+        border-radius: 10px;
+        font-weight: 700;
+    }
+
+    /* 録画ボタンを一番下に大きく配置 */
+    #recBtn {
+        background: linear-gradient(135deg, var(--accent-red) 0%, #b71c1c 100%);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 15px rgba(255, 82, 82, 0.4);
+    }
+
+    /* 再生用タイムライン */
+    #timelineSlider {
+        flex: 1 1 100%;
+        margin: 10px 0;
+    }
+    
+    #frameCounter {
+        flex: 1 1 auto;
+        font-size: 11px;
+        text-align: center;
+    }
+}

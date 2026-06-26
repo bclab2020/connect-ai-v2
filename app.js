@@ -16,6 +16,16 @@ var currentStream = null;
 var appMode = "camera"; // 'camera' or 'playback'
 var isPlaying = false;
 
+// Gyro/Level/Auto-REC States (V2.3)
+var isGyroEnabled = false;
+var deviceOrientation = { beta: 90, gamma: 0 };
+var isDeviceVertical = false;
+var isAthleteFullyVisible = false;
+var autoRecCountdownTimer = null;
+var autoRecCountdownVal = 3;
+var isAutoRecActive = false;
+var isMobileView = false;
+
 var playbackDataMP = [];
 var mainRenderId = null;
 var recordingDuration = 10000;
@@ -659,6 +669,147 @@ var makeRadarDraggable = function() {
     });
 };
 
+// ==========================================================================
+// Smartphone Orientation & Auto-REC Utilities (V2.3)
+// ==========================================================================
+
+function checkDeviceType() {
+    isMobileView = window.innerWidth < 768;
+    var container = document.getElementById('gyroLevelContainer');
+    if (container) {
+        container.style.display = (isMobileView && isRunning && appMode === 'camera') ? 'flex' : 'none';
+    }
+}
+window.addEventListener('resize', checkDeviceType);
+
+function requestDeviceOrientationPermission() {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+            .then(permissionState => {
+                if (permissionState === 'granted') {
+                    window.addEventListener('deviceorientation', handleOrientation);
+                    isGyroEnabled = true;
+                    document.getElementById('gyroPermissionModal').style.display = 'none';
+                    checkDeviceType();
+                } else {
+                    alert("傾きセンサーの利用が拒否されました。手持ち測定水準器は無効化されます。");
+                    document.getElementById('gyroPermissionModal').style.display = 'none';
+                }
+            })
+            .catch(err => {
+                console.error("DeviceOrientation permission error:", err);
+                document.getElementById('gyroPermissionModal').style.display = 'none';
+            });
+    } else {
+        window.addEventListener('deviceorientation', handleOrientation);
+        isGyroEnabled = true;
+        document.getElementById('gyroPermissionModal').style.display = 'none';
+        checkDeviceType();
+    }
+}
+
+function handleOrientation(event) {
+    if (event.beta !== null) deviceOrientation.beta = event.beta;
+    if (event.gamma !== null) deviceOrientation.gamma = event.gamma;
+    updateDigitalLevel();
+}
+
+function updateDigitalLevel() {
+    var dot = document.getElementById('gyroLevelDot');
+    var container = document.getElementById('gyroLevelContainer');
+    if (!dot || !container) return;
+
+    var pitchErr = deviceOrientation.beta - 90; // 90 degrees is straight vertical
+    var rollErr = deviceOrientation.gamma; // 0 degrees is horizontal alignment
+
+    // Scale errors for visualization inside circular HUD
+    var scaleFactor = 3.5;
+    var dx = rollErr * scaleFactor;
+    var dy = pitchErr * scaleFactor;
+    
+    var dist = Math.hypot(dx, dy);
+    var maxDist = 38;
+    if (dist > maxDist) {
+        dx = (dx / dist) * maxDist;
+        dy = (dy / dist) * maxDist;
+    }
+
+    dot.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+    // Aligned if both pitch & roll errors are within 3 degrees
+    if (Math.abs(pitchErr) <= 3 && Math.abs(rollErr) <= 3) {
+        container.classList.add('aligned');
+        document.getElementById('gyroLevelStatus').innerText = "📐 垂直OK！全身を収めてください";
+        isDeviceVertical = true;
+    } else {
+        container.classList.remove('aligned');
+        document.getElementById('gyroLevelStatus').innerText = "📐 カメラを垂直に保ってください";
+        isDeviceVertical = false;
+        resetAutoRecCountdown();
+    }
+}
+
+function checkAthleteVisibility(kps) {
+    var requiredJoints = ['left_shoulder', 'right_shoulder', 'left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle'];
+    var visibleCount = 0;
+    
+    requiredJoints.forEach(name => {
+        var kp = kps.find(k => k.name === name);
+        if (!kp) {
+            var idxMap = {
+                'left_shoulder': 11, 'right_shoulder': 12,
+                'left_hip': 23, 'right_hip': 24,
+                'left_knee': 25, 'right_knee': 26,
+                'left_ankle': 27, 'right_ankle': 28
+            };
+            kp = kps[idxMap[name]];
+        }
+        if (kp && kp.score > 0.5) {
+            visibleCount++;
+        }
+    });
+
+    isAthleteFullyVisible = (visibleCount === requiredJoints.length);
+}
+
+function triggerAutoRecCountdown() {
+    isAutoRecActive = true;
+    autoRecCountdownVal = 3;
+    var overlay = document.getElementById('autoRecCountdown');
+    overlay.innerText = autoRecCountdownVal;
+    overlay.style.display = 'block';
+    
+    document.body.classList.add('recording-active');
+
+    autoRecCountdownTimer = setInterval(function() {
+        autoRecCountdownVal--;
+        if (autoRecCountdownVal > 0) {
+            overlay.innerText = autoRecCountdownVal;
+        } else {
+            clearInterval(autoRecCountdownTimer);
+            autoRecCountdownTimer = null;
+            overlay.style.display = 'none';
+            isAutoRecActive = false;
+            // Trigger actual record click
+            recBtn.click();
+        }
+    }, 1000);
+}
+
+function resetAutoRecCountdown() {
+    if (isAutoRecActive) {
+        clearInterval(autoRecCountdownTimer);
+        autoRecCountdownTimer = null;
+        isAutoRecActive = false;
+        var overlay = document.getElementById('autoRecCountdown');
+        if (overlay) overlay.style.display = 'none';
+        
+        if (!isRecording) {
+            document.body.classList.remove('recording-active');
+        }
+    }
+}
+
 // Update Info HUD Panel text
 function updateInfoPanel() {
     var scaleText = pxToCmRatio ? "校正済 (1px = " + pxToCmRatio.toFixed(3) + "cm)" : "📏 スケール未校正 (自動推定中)";
@@ -1000,6 +1151,9 @@ async function init() {
         startBtn.innerText = "📷 フルHD起動"; 
         startBtn.disabled = false; 
         updateInfoPanel();
+        
+        // iOS Gyro permission button binding
+        document.getElementById('submitGyroPermissionBtn').onclick = requestDeviceOrientationPermission;
     } catch (e) { 
         startBtn.innerText = "❌ 起動エラー"; 
         console.error("AI Initialization Error:", e);
@@ -1057,6 +1211,17 @@ startBtn.onclick = async function() {
             canvasComb.height = video.videoHeight; 
             isRunning = true;
             video.play(); 
+            
+            // Check gyro settings on mobile startup
+            if (window.innerWidth < 768 && !isGyroEnabled) {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    document.getElementById('gyroPermissionModal').style.display = 'block';
+                } else {
+                    requestDeviceOrientationPermission();
+                }
+            }
+            checkDeviceType();
+            
             render(currentSession); 
         };
     } catch (e) {
@@ -1138,6 +1303,16 @@ async function render(sessionId) {
         }
 
         biomechanics.updateRadar(kps, canvasRadarMP, ctxRadarMP, swayHistoryMP, isRecording, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
+        
+        // Mobile Auto-REC check
+        if (appMode === 'camera' && isRunning) {
+            checkAthleteVisibility(kps);
+            if (isMobileView && isDeviceVertical && isAthleteFullyVisible && !isRecording && !isAutoRecActive) {
+                triggerAutoRecCountdown();
+            } else if (isMobileView && (!isDeviceVertical || !isAthleteFullyVisible)) {
+                resetAutoRecCountdown();
+            }
+        }
     }
     
     ctxComb.drawImage(canvasMP, 0, 0, w, h); 
@@ -1194,6 +1369,7 @@ recBtn.onclick = function() {
     if (isRecording) return;
     
     isRecording = true;
+    document.body.classList.add('recording-active');
     coordinateBufferMP = [];
     poseDataLog = [];
     swayHistoryMP = [];
@@ -1240,6 +1416,10 @@ async function stopRecording() {
     recBtn.innerText = "🔴 録画スタート";
     recBtn.disabled = false;
     timerDisplay.style.display = 'none';
+    
+    document.body.classList.remove('recording-active');
+    var gyroContainer = document.getElementById('gyroLevelContainer');
+    if (gyroContainer) gyroContainer.style.display = 'none';
 
     if (exportRecorder && exportRecorder.state !== 'inactive') {
         exportRecorder.stop();
@@ -1295,6 +1475,8 @@ function exitPlaybackMode() {
     isPlaying = false;
     selectedJointIndex = null;
     isEditingPlaybackFrame = false;
+    
+    checkDeviceType();
     
     document.getElementById('dpadPanel').style.display = 'none';
     document.getElementById('playbackControls').style.display = 'none';

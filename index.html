@@ -44,6 +44,16 @@
         <div class="radar-title">COP RADAR</div>
         <canvas id="canvasRadarMP" class="radar-box" width="150" height="150"></canvas>
     </div>
+    
+    <!-- Digital Level Guide for Handheld (hidden by default) -->
+    <div id="gyroLevelContainer" class="gyro-level-container" style="display:none;">
+        <div class="level-circle"></div>
+        <div class="level-dot" id="gyroLevelDot"></div>
+        <div class="level-status" id="gyroLevelStatus">📐 カメラを垂直に保ってください</div>
+    </div>
+    
+    <!-- Auto-REC Countdown Overlay -->
+    <div id="autoRecCountdown" class="auto-rec-countdown" style="display:none;">3</div>
 </div>
 
 <!-- Pelvic Tilt Control Panel -->
@@ -151,6 +161,19 @@
     </div>
     <div class="modal-footer">
         <button id="submitBookingBtn" class="btn primary-btn">個別予約を実行</button>
+    </div>
+</div>
+
+<!-- iOS Gyro Permission Prompt Modal -->
+<div id="gyroPermissionModal" class="modal-panel" style="display:none;">
+    <div class="modal-header">
+        <h3>📐 傾きセンサーの有効化</h3>
+    </div>
+    <div class="modal-body">
+        <p>手持ち撮影時の測定精度を担保するため、スマートフォンの傾きセンサー（ジャイロ）を有効化する必要があります。</p>
+    </div>
+    <div class="modal-footer">
+        <button id="submitGyroPermissionBtn" class="btn primary-btn">水準器を有効化する</button>
     </div>
 </div>
 
