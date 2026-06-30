@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ÉLITE PERFORMANCE - Athletecore Pro</title>
+    
+    <!-- PWA settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#050811">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <!-- TensorFlow.js and MediaPipe scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="view-port">
+    <!-- Hidden video stream -->
+    <video id="video" autoplay playsinline muted></video>
+    
+    <!-- Main visualization canvas -->
+    <canvas id="canvasMP"></canvas>
+    
+    <!-- HUD details -->
+    <div class="hud-label" id="appHeaderTitle">ÉLITE PERFORMANCE <span class="badge">Precision in Motion</span></div>
+    
+    <div class="info-panel" id="infoPanel">
+        <div class="status-indicator"></div>
+        <span id="scaleStatus">📏 スケール未校正</span><br>
+        <span id="pelvicStatus">📐 骨盤傾斜: 0°</span>
+    </div>
+    
+    <div id="timerDisplay" class="timer-display">REC 10.0s</div>
+    
+    <!-- COP Radar -->
+    <div id="radarWrapperMP" class="radar-wrapper">
+        <div class="radar-title">COP RADAR</div>
+        <canvas id="canvasRadarMP" class="radar-box" width="150" height="150"></canvas>
+    </div>
+    
+    <!-- Digital Level Guide for Handheld (hidden by default) -->
+    <div id="gyroLevelContainer" class="gyro-level-container" style="display:none;">
+        <div class="level-circle"></div>
+        <div class="level-dot" id="gyroLevelDot"></div>
+        <div class="level-status" id="gyroLevelStatus">📐 カメラを垂直に保ってください</div>
+    </div>
+    
+    <!-- Auto-REC Countdown Overlay -->
+    <div id="autoRecCountdown" class="auto-rec-countdown" style="display:none;">3</div>
+</div>
+
+<!-- Pelvic Tilt Control Panel -->
+<div id="tiltPanel">
+    <div class="panel-header">📐 骨盤傾斜角 (目視補正)</div>
+    <div class="slider-labels">
+        <span>後傾 (-20°)</span>
+        <span>ニュートラル</span>
+        <span>前傾 (+30°)</span>
+    </div>
+    <input type="range" id="pelvicTiltSlider" class="tilt-slider" min="-20" max="30" value="0">
+    <div class="tilt-val" id="tiltValDisplay">0° (ニュートラル)</div>
+</div>
+
+<!-- D-pad Joint Micro-Adjuster -->
+<div id="dpadPanel">
+    <div class="dpad-header">
+        <span>🎯 ポイント微調整</span> 
+        <button class="dpad-close" id="dpadClose">✖</button>
+    </div>
+    <div class="dpad-row">
+        <button class="dpad-btn" id="dpadUp">▲</button>
+    </div>
+    <div class="dpad-row">
+        <button class="dpad-btn" id="dpadLeft">◀</button>
+        <button class="dpad-btn dpad-step-btn" id="dpadStep">1px</button>
+        <button class="dpad-btn" id="dpadRight">▶</button>
+    </div>
+    <div class="dpad-row">
+        <button class="dpad-btn" id="dpadDown">▼</button>
+    </div>
+</div>
+
+<!-- API Setting Dialog -->
+<div id="apiSettingPanel" class="modal-panel">
+    <div class="modal-header">
+        <h3>⚙️ Gemini API設定</h3>
+        <button id="closeApiBtn" class="close-btn">✖</button>
+    </div>
+    <div class="modal-body">
+        <p>Google Gemini APIキーを入力すると、測定データに基づいた高度なAI臨床評価レポートを作成できます。</p>
+        <div class="input-field">
+            <label for="geminiApiKey">Gemini API Key</label>
+            <input type="password" id="geminiApiKey" placeholder="AIzaSy...">
+        </div>
+        <p class="help-text">※キーは暗号化されずローカルブラウザの localStorage にのみ保存され、外部サーバーを経由せず直接GoogleのAPIとやり取りされます。</p>
+    </div>
+    <div class="modal-footer">
+        <button id="saveApiBtn" class="btn primary-btn">設定を保存</button>
+    </div>
+</div>
+
+<!-- Specialist Mode Login Modal -->
+<div id="specialistLoginModal" class="modal-panel">
+    <div class="modal-header">
+        <h3>🔒 専門家モード認証</h3>
+        <button id="closeLoginBtn" class="close-btn">✖</button>
+    </div>
+    <div class="modal-body">
+        <p>事業者・専門家向けの分析カルテ作成・骨格補正ツールを開放します。</p>
+        <div class="input-field">
+            <label for="specialistId">専門家ID</label>
+            <input type="text" id="specialistId" placeholder="IDを入力してください" value="specialist">
+        </div>
+        <div class="input-field">
+            <label for="specialistPass">パスワード</label>
+            <input type="password" id="specialistPass" placeholder="パスワードを入力してください">
+        </div>
+        <p class="error-text" id="loginErrorMsg" style="color:var(--accent-red); font-size:12px; display:none; margin-top:5px;">⚠️ IDまたはパスワードが正しくありません。</p>
+    </div>
+    <div class="modal-footer">
+        <button id="submitLoginBtn" class="btn primary-btn">ロック解除</button>
+    </div>
+</div>
+
+<!-- Mentor Paid Session Booking Modal -->
+<div id="mentorBookingModal" class="modal-panel">
+    <div class="modal-header">
+        <h3>💬 専門家メンター個別指導セッション予約（有料）</h3>
+        <button id="closeBookingBtn" class="close-btn">✖</button>
+    </div>
+    <div class="modal-body">
+        <p>測定データとAIレポートだけでは解決しない課題や、選手特有のトレーニング作成を、登録専門家がオンラインビデオで直接指導します。</p>
+        
+        <div class="input-field">
+            <label for="mentorSelect">メンターを選択</label>
+            <select id="mentorSelect" style="width:100%;">
+                <option value="physio_tanaka">田中 誠 (理学療法士 / 成長期脊柱アライメント専門)</option>
+                <option value="trainer_sato">佐藤 翼 (JASAアスレティックトレーナー / 投球動作分析・OHS)</option>
+                <option value="sprint_suzuki">鈴木 翔 (陸上100m元選手 / ジュニアスプリント・重心軌跡)</option>
+            </select>
+        </div>
+        
+        <div class="input-field">
+            <label for="bookingDate">希望日時</label>
+            <input type="datetime-local" id="bookingDate">
+        </div>
+        
+        <div class="input-field">
+            <label for="bookingInquiry">特に相談したいこと</label>
+            <textarea id="bookingInquiry" placeholder="例: 反り腰を指摘されましたが、サッカーのダッシュ時に痛みがあります。改善ストレッチの方法を詳しく教えてほしいです。" style="width:100%; height:70px; background:#0f1c3f; border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:white; padding:10px; font-family:inherit; resize:none; outline:none; box-sizing:border-box;"></textarea>
+        </div>
+        
+        <p class="help-text">※個別セッションは1枠45分/¥5,500(税込)です。予約完了後、担当メンターから確認メールが届きます。</p>
+    </div>
+    <div class="modal-footer">
+        <button id="submitBookingBtn" class="btn primary-btn">個別予約を実行</button>
+    </div>
+</div>
+
+<!-- iOS Gyro Permission Prompt Modal -->
+<div id="gyroPermissionModal" class="modal-panel" style="display:none;">
+    <div class="modal-header">
+        <h3>📐 傾きセンサーの有効化</h3>
+    </div>
+    <div class="modal-body">
+        <p>手持ち撮影時の測定精度を担保するため、スマートフォンの傾きセンサー（ジャイロ）を有効化する必要があります。</p>
+    </div>
+    <div class="modal-footer">
+        <button id="submitGyroPermissionBtn" class="btn primary-btn">水準器を有効化する</button>
+    </div>
+</div>
+
+<!-- History Drawer Panel -->
+<div id="historyPanel">
+    <div class="history-header">
+        <span>📂 保存データ（履歴）</span>
+        <button id="closeHistoryBtn">✖</button>
+    </div>
+    <div class="history-list" id="historyListContainer"></div>
+</div>
+
+<!-- Dashboard Report Overlay -->
+<div id="dashboardOverlay">
+    <div class="dash-header">
+        <div>
+            <h2 class="dash-title" id="dashReportTitle">📊 統合バイオメカニクス評価レポート</h2>
+            <div style="color:#8892b0; font-size: 14px; margin-top:5px;" id="dashReportSub">ÉLITE PERFORMANCE - Athletecore Pro</div>
+        </div>
+        <div class="dash-actions">
+            <button class="dash-print" onclick="window.print()">📄 PDF保存・印刷</button>
+            <button class="dash-close" onclick="document.getElementById('dashboardOverlay').style.display='none'">✖ 閉じる</button>
+        </div>
+    </div>
+    <div class="dash-grid" id="dashGrid"></div>
+</div>
+
+<!-- Float Controls Layout -->
+<div id="uiFloatingLayer">
+    <div class="ui-top-buttons">
+        <button id="toggleUiBtn" class="ui-top-btn">🔽 UIを隠す</button>
+        <button id="showHistoryBtn" class="ui-top-btn">📂 履歴を開く</button>
+        <button id="showApiBtn" class="ui-top-btn">⚙️ API設定</button>
+        <button id="toggleCameraModeBtn" class="ui-top-btn" style="border-color:var(--accent-teal); color:var(--accent-teal);">🤳 自撮りモード</button>
+        
+        <!-- Specialist switch locks -->
+        <button id="modeUnlockBtn" class="ui-top-btn" style="border-color:var(--accent-orange); color:var(--accent-orange);">🔒 専門家ログイン</button>
+        <button id="logoutBtn" class="ui-top-btn" style="display:none; background:rgba(255, 82, 82, 0.1); border-color:var(--accent-red); color:var(--accent-red);">🔓 ログアウト</button>
+        
+        <button id="showDashboardBtn" class="ui-top-btn dash-top-btn" onclick="prepareAndPrintReport()">📊 レポート表示</button>
+    </div>
+    
+    <div id="controlsBox">
+        <div class="controls" id="mainControls">
+            <!-- settingsWrapper container for hiding settings on mobile while keeping action buttons visible -->
+            <div id="settingsWrapper" style="display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; align-items: center; width: 100%;">
+                <div class="input-group" id="nameInputGroup">
+                    <span class="prefix">選手名/ID</span>
+                    <input type="text" id="patientName" placeholder="名前またはID" style="background:transparent; border:none; color:var(--accent-teal); font-weight:700; width:110px; outline:none; padding:4px 0;">
+                </div>
+
+                <!-- Specialist File Upload logic (hidden by default, shown to specialists) -->
+                <div class="input-group" id="importJsonGroup" style="display:none; border-color:var(--accent-orange);">
+                    <span class="prefix">JSON読込</span>
+                    <input type="file" id="importSessionJson" accept=".json" style="display:none;">
+                    <button onclick="document.getElementById('importSessionJson').click()" style="background:transparent; color:var(--accent-orange); border:none; padding:4px 0; font-size:12px; cursor:pointer;">📁 読込</button>
+                </div>
+
+                <div class="control-group">
+                    <select id="videoSource"><option value="">カメラ検索中...</option></select>
+                </div>
+                
+                <div class="input-group">
+                    <span class="prefix">身長</span>
+                    <input type="number" id="patientHeight" value="170" min="100" max="220">
+                    <span class="suffix">cm</span>
+                </div>
+                <div class="input-group">
+                    <span class="prefix">足ｻｲｽﾞ</span>
+                    <input type="number" id="footSize" value="25" min="15" max="40" step="0.5">
+                    <span class="suffix">cm</span>
+                </div>
+                
+                <button id="calibrateMatBtn" class="purple-btn">📏 マット校正(45cm)</button>
+
+                <select id="modeSelect" class="mode-dropdown">
+                    <optgroup label="■ 静止姿勢アライメント">
+                        <option value="front" selected>🧍 前面</option>
+                        <option value="back">🧍 後面</option>
+                        <option value="l_side">🧍 左側面</option>
+                        <option value="r_side">🧍 右側面</option>
+                    </optgroup>
+                    <optgroup label="■ 動的機能評価">
+                        <option value="dyn_overhead">🏋️ OHS [前面]</option>
+                        <option value="dyn_overhead_side">🏋️ OHS [側面]</option>
+                        <option value="dyn_single_r">🦵 片脚バランス [右軸]</option>
+                        <option value="dyn_single_l">🦵 片脚バランス [左軸]</option>
+                        <option value="dyn_flex_fwd">🙇 立位体前屈</option>
+                        <option value="dyn_flex_bwd">🤸 立位体後屈</option>
+                        <option value="dyn_shoulder_r">👐 肩複合可動性 [右上]</option>
+                        <option value="dyn_shoulder_l">👐 肩複合可動性 [左上]</option>
+                    </optgroup>
+                </select>
+                
+                <select id="durationSelect">
+                    <option value="5000">⏱️ 5秒</option>
+                    <option value="10000" selected>⏱️ 10秒</option>
+                    <option value="15000">⏱️ 15秒</option>
+                    <option value="20000">⏱️ 20秒</option>
+                </select>
+                
+                <label class="toggle-label"><input type="checkbox" id="showSwayAlert" checked> 警告</label>
+            </div>
+            
+            <button id="startBtn" disabled>⏳ 起動準備中...</button>
+            <button id="recBtn" disabled>🔴 録画スタート</button>
+        </div>
+
+        <div class="controls" id="playbackControls" style="display:none;">
+            <button id="backToCamBtn" class="gray-btn">🔙 再測定へ</button>
+            <button id="playPauseBtn" class="blue-btn">▶ 再生</button>
+            <input type="range" id="timelineSlider" min="0" max="100" value="0">
+            <span id="frameCounter">0 / 0</span>
+            <button id="editFrameBtn" class="orange-btn">✂️ 微調整</button>
+            
+            <!-- Export JSON for Specialist to comment, and export WebM for client -->
+            <button id="exportSessionJsonBtn" class="purple-btn" style="display:none;">📤 JSON書出</button>
+            <button id="exportVideoBtn" class="blue-btn">🎥 動画出力</button>
+            
+            <button id="downloadCsvBtn" class="green-btn" disabled>📊 CSV</button>
+            <button id="printReportBtn" class="orange-btn" onclick="prepareAndPrintReport()">📄 レポート</button>
+        </div>
+    </div>
+</div>
+
+<!-- Extra hidden canvas for combining images during WebM conversion/captures -->
+<canvas id="canvasCombined" style="display:none;"></canvas>
+
+<!-- PWA Service worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then((reg) => console.log('ServiceWorker registered successfully with scope:', reg.scope))
+      .catch((err) => console.error('ServiceWorker registration failed:', err));
+  });
+}
+</script>
+
+<!-- App Scripts -->
+<script src="db.js"></script>
+<script src="biomechanics.js"></script>
+<script src="api.js"></script>
+<script src="app.js"></script>
+
+<!-- CORE CONNECT Integration Hook -->
+<script>
+window.addEventListener('load', () => {
+    // 1. Hook into database saves to notify parent portal of completed sessions
+    if (typeof dbManager !== 'undefined') {
+        const originalSave = dbManager.saveSession;
+        dbManager.saveSession = async function(sessionData) {
+            const result = await originalSave.call(dbManager, sessionData);
+            console.log("Portal Hook Intercepted Session Save:", sessionData);
+            
+            if (window.parent && window.parent !== window && typeof apiManager !== 'undefined') {
+                try {
+                    const metrics = apiManager.extractMetrics(sessionData);
+                    window.parent.postMessage({
+                        type: 'MEASUREMENT_COMPLETE',
+                        session: sessionData,
+                        metrics: metrics
+                    }, '*');
+                } catch (e) {
+                    console.error("Portal Hook metrics extraction error:", e);
+                }
+            }
+            return result;
+        };
+    }
+
+    // 2. Parse deep link parameters from portal
+    setTimeout(() => {
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode');
+        const autoStart = params.get('autoStart');
+
+        if (mode) {
+            console.log("Portal Hook switching mode:", mode);
+            const select = document.getElementById('modeSelect');
+            if (select) {
+                select.value = mode;
+                if (typeof updateModeUI === 'function') {
+                    updateModeUI(mode);
+                }
+            }
+        }
+
+        if (autoStart === 'true') {
+            console.log("Portal Hook triggering auto camera start");
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn && !startBtn.disabled) {
+                startBtn.click();
+            }
+        }
+    }, 1200); // Wait for BlazePose to load
+});
+</script>
+
+</body>
+</html>

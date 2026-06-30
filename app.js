@@ -25,6 +25,8 @@ var autoRecCountdownTimer = null;
 var autoRecCountdownVal = 3;
 var isAutoRecActive = false;
 var isMobileView = false;
+var isSelfie = false; // V2.5
+var cameraFacingMode = "environment"; // V2.5
 
 var playbackDataMP = [];
 var mainRenderId = null;
@@ -99,6 +101,7 @@ var timerDisplay = document.getElementById('timerDisplay');
 var downloadCsvBtn = document.getElementById('downloadCsvBtn');
 var showSwayAlertCheckbox = document.getElementById('showSwayAlert');
 var videoSource = document.getElementById('videoSource');
+var toggleCameraModeBtn = document.getElementById('toggleCameraModeBtn');
 
 var patientNameInput = document.getElementById('patientName');
 var heightInput = document.getElementById('patientHeight');
@@ -170,6 +173,20 @@ saveApiBtn.onclick = function() {
     apiSettingPanel.style.display = 'none';
     alert("APIキーを保存しました。");
 };
+
+// V2.5 Camera Mode Toggle Handler
+if (toggleCameraModeBtn) {
+    toggleCameraModeBtn.onclick = function() {
+        cameraFacingMode = (cameraFacingMode === "environment") ? "user" : "environment";
+        isSelfie = (cameraFacingMode === "user");
+        this.innerText = isSelfie ? "🧍 他撮りモード" : "🤳 自撮りモード";
+        
+        // Auto restart if camera is already running
+        if (isRunning) {
+            startBtn.click();
+        }
+    };
+}
 
 // Specialist Authorization check
 function updateAuthUI() {
@@ -1231,10 +1248,13 @@ startBtn.onclick = async function() {
                 height: { ideal: 1080 }
             }
         };
-        if (videoSource.value) {
+        if (isMobileView) {
+            // V2.5: モバイル時はトグルで選択した向き（自撮り / 他撮り）を優先
+            constraints.video.facingMode = { ideal: cameraFacingMode };
+        } else if (videoSource.value) {
             constraints.video.deviceId = { exact: videoSource.value };
         } else {
-            constraints.video.facingMode = "environment";
+            constraints.video.facingMode = { ideal: "environment" };
         }
         
         currentStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -1289,7 +1309,18 @@ async function render(sessionId) {
     }
     
     var w = video.videoWidth, h = video.videoHeight;
-    ctxMP.drawImage(video, 0, 0, w, h); 
+    
+    // V2.5: 自撮りモード時は鏡映像として表示するために左右反転描画
+    if (isSelfie) {
+        ctxMP.save();
+        ctxMP.translate(w, 0);
+        ctxMP.scale(-1, 1);
+        ctxMP.drawImage(video, 0, 0, w, h);
+        ctxMP.restore();
+    } else {
+        ctxMP.drawImage(video, 0, 0, w, h);
+    }
+    
     biomechanics.drawCenterGrid(ctxMP, canvasMP);
 
     if (calibState !== "idle") {
@@ -1328,26 +1359,34 @@ async function render(sessionId) {
             });
         }
 
+        // V2.5: 画面描画および重心表示のため、自撮りモード時はX座標を反転させたキーポイントを作成
+        var drawKps = JSON.parse(JSON.stringify(kps));
+        if (isSelfie) {
+            drawKps.forEach(kp => {
+                if (kp) kp.x = w - kp.x;
+            });
+        }
+
         var color = currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252';
-        biomechanics.drawSkeleton(ctxMP, kps, color);
+        biomechanics.drawSkeleton(ctxMP, drawKps, color);
         
         if (currentTab === 'l_side' || currentTab === 'r_side') {
-            biomechanics.drawKendallAlignment(ctxMP, kps, pxToCmRatio, parseFloat(footSizeInput.value), estimatedPelvicTilt, currentTab, w, h);
+            biomechanics.drawKendallAlignment(ctxMP, drawKps, pxToCmRatio, parseFloat(footSizeInput.value), estimatedPelvicTilt, currentTab, w, h);
         } else if (currentTab === 'front' || currentTab === 'back' || currentTab === 'dyn_overhead') {
-            biomechanics.calculateWeightBearing(ctxMP, kps, w, h);
+            biomechanics.calculateWeightBearing(ctxMP, drawKps, w, h);
         }
 
         if (currentTab === 'dyn_overhead') {
-            biomechanics.drawOHSFrontAnalysis(ctxMP, kps);
+            biomechanics.drawOHSFrontAnalysis(ctxMP, drawKps);
         } else if (currentTab === 'dyn_overhead_side') {
-            biomechanics.drawOHSSideAnalysis(ctxMP, kps);
+            biomechanics.drawOHSSideAnalysis(ctxMP, drawKps);
         } else if (currentTab.startsWith('dyn_flex_')) {
-            biomechanics.drawFlexionAnalysis(ctxMP, kps, currentTab);
+            biomechanics.drawFlexionAnalysis(ctxMP, drawKps, currentTab);
         } else if (currentTab.startsWith('dyn_shoulder_')) {
-            biomechanics.drawShoulderAnalysis(ctxMP, kps, currentTab);
+            biomechanics.drawShoulderAnalysis(ctxMP, drawKps, currentTab);
         }
 
-        biomechanics.updateRadar(kps, canvasRadarMP, ctxRadarMP, swayHistoryMP, isRecording, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
+        biomechanics.updateRadar(drawKps, canvasRadarMP, ctxRadarMP, swayHistoryMP, isRecording, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
         
         // Mobile Auto-REC check
         if (appMode === 'camera' && isRunning) {

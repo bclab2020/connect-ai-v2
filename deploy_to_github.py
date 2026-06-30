@@ -110,6 +110,15 @@ def main():
         "biomechanics.js",
         "api.js",
         "app.js",
+        "measurement.html",
+        "portal.css",
+        "portal.js",
+        "mock_app.html",
+        "face_analyzer.html",
+        "sw.js",
+        "manifest.json",
+        "icon-192.png",
+        "icon-512.png",
         "README.md"
     ]
     
