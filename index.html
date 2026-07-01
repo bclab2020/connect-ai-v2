@@ -30,6 +30,7 @@
     
     <!-- HUD details -->
     <div class="hud-label" id="appHeaderTitle">ÉLITE PERFORMANCE <span class="badge">Precision in Motion</span></div>
+    <div id="cameraModeBadge" class="camera-mode-badge">🧍 他撮り（通常表示）</div>
     
     <div class="info-panel" id="infoPanel">
         <div class="status-indicator"></div>
@@ -54,6 +55,7 @@
     
     <!-- Auto-REC Countdown Overlay -->
     <div id="autoRecCountdown" class="auto-rec-countdown" style="display:none;">3</div>
+    <div id="autoRecReadyMessage" class="auto-rec-ready-message" style="display:none;">Ready... 静止してください</div>
 </div>
 
 <!-- Pelvic Tilt Control Panel -->
@@ -204,6 +206,7 @@
 <!-- Float Controls Layout -->
 <div id="uiFloatingLayer">
     <div class="ui-top-buttons">
+        <button id="toggleCameraModeBtn" class="ui-top-btn" style="border-color:var(--accent-teal); color:var(--accent-teal);">🤳 自撮りモード</button>
         <button id="toggleUiBtn" class="ui-top-btn">🔽 UIを隠す</button>
         <button id="showHistoryBtn" class="ui-top-btn">📂 履歴を開く</button>
         <button id="showApiBtn" class="ui-top-btn">⚙️ API設定</button>
@@ -317,6 +320,60 @@ if ('serviceWorker' in navigator) {
 <script src="biomechanics.js"></script>
 <script src="api.js"></script>
 <script src="app.js"></script>
+
+<!-- CORE CONNECT Integration Hook -->
+<script>
+window.addEventListener('load', () => {
+    // 1. Hook into database saves to notify parent portal of completed sessions
+    if (typeof dbManager !== 'undefined') {
+        const originalSave = dbManager.saveSession;
+        dbManager.saveSession = async function(sessionData) {
+            const result = await originalSave.call(dbManager, sessionData);
+            console.log("Portal Hook Intercepted Session Save:", sessionData);
+            
+            if (window.parent && window.parent !== window && typeof apiManager !== 'undefined') {
+                try {
+                    const metrics = apiManager.extractMetrics(sessionData);
+                    window.parent.postMessage({
+                        type: 'MEASUREMENT_COMPLETE',
+                        session: sessionData,
+                        metrics: metrics
+                    }, '*');
+                } catch (e) {
+                    console.error("Portal Hook metrics extraction error:", e);
+                }
+            }
+            return result;
+        };
+    }
+
+    // 2. Parse deep link parameters from portal
+    setTimeout(() => {
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode');
+        const autoStart = params.get('autoStart');
+
+        if (mode) {
+            console.log("Portal Hook switching mode:", mode);
+            const select = document.getElementById('modeSelect');
+            if (select) {
+                select.value = mode;
+                if (typeof updateModeUI === 'function') {
+                    updateModeUI(mode);
+                }
+            }
+        }
+
+        if (autoStart === 'true') {
+            console.log("Portal Hook triggering auto camera start");
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn && !startBtn.disabled) {
+                startBtn.click();
+            }
+        }
+    }, 1200); // Wait for BlazePose to load
+});
+</script>
 
 </body>
 </html>
