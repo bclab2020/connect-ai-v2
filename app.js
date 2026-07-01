@@ -743,13 +743,9 @@ function updateModeUI(mode) {
     var tiltPanel = document.getElementById('tiltPanel');
     if (tiltPanel) {
         var shouldShowTilt = (currentTab === 'l_side' || currentTab === 'r_side');
-        if (shouldShowTilt) {
-            if (isMobileView) {
-                // Mobile: Hide during camera view to keep canvas visible, show only in playback/edit
-                tiltPanel.style.display = (appMode === 'playback') ? 'block' : 'none';
-            } else {
-                tiltPanel.style.display = 'block';
-            }
+        // V2.5.9: PC/タブレット/スマホすべてのデバイスにおいて、カメラ起動中(撮影中)はパネルを完全に隠し、被写体の見やすさを最優先する
+        if (shouldShowTilt && appMode === 'playback') {
+            tiltPanel.style.display = 'block';
         } else {
             tiltPanel.style.display = 'none';
         }
