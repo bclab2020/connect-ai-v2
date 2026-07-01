@@ -465,6 +465,11 @@ pelvicTiltSlider.oninput = function(e) {
     tiltValDisplay.innerText = val === 0 ? "0°" : (val > 0 ? "+" + val + "° (前傾)" : val + "° (後傾)");
     estimatedPelvicTilt = val;
     updateInfoPanel();
+    
+    // V2.5.8: 微調整画像のリアルタイム更新
+    if (appMode === 'playback') {
+        captureSkeletonImage(currentTab);
+    }
 };
 
 // D-pad Handlers
@@ -716,6 +721,24 @@ function updateModeUI(mode) {
     var modeSelect = document.getElementById('modeSelect');
     if (modeSelect) modeSelect.value = currentTab;
     
+    // V2.5.8: 次の測定ナビゲーションボタンの表示制御
+    var nextBtn = document.getElementById('nextMeasureBtn');
+    if (nextBtn) {
+        var isStaticMode = ['front', 'back', 'l_side', 'r_side'].includes(mode);
+        if (isStaticMode && appMode === 'playback') {
+            nextBtn.style.display = 'inline-block';
+            var labels = {
+                'front': '決定して左側面へ ➡',
+                'l_side': '決定して後面へ ➡',
+                'back': '決定して右側面へ ➡',
+                'r_side': '決定してレポート表示 📊'
+            };
+            nextBtn.innerText = labels[mode] || '決定して次へ';
+        } else {
+            nextBtn.style.display = 'none';
+        }
+    }
+    
     // Toggle pelvic tilt panel
     var tiltPanel = document.getElementById('tiltPanel');
     if (tiltPanel) {
@@ -734,6 +757,70 @@ function updateModeUI(mode) {
     
     swayHistoryMP = [];
     biomechanics.clearRadar(ctxRadarMP, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
+}
+
+// V2.5.8: Auto-navigation binding trigger
+var nextMeasureBtn = document.getElementById('nextMeasureBtn');
+if (nextMeasureBtn) {
+    nextMeasureBtn.onclick = function() {
+        advanceToNextMeasurement();
+    };
+}
+
+async function advanceToNextMeasurement() {
+    // 1. 現在の画面（骨格・アライメント描画済み状態）をキャプチャしてメモリ保存
+    captureSkeletonImage(currentTab);
+    
+    // 2. 次のステップへの判定
+    var nextModeMap = {
+        'front': 'l_side',
+        'l_side': 'back',
+        'back': 'r_side',
+        'r_side': 'report'
+    };
+    
+    var nextMode = nextModeMap[currentTab];
+    if (!nextMode) return;
+    
+    if (nextMode === 'report') {
+        prepareAndPrintReport();
+        return;
+    }
+    
+    // 3. 次のモードへ移行
+    console.log("Auto-navigating to next mode: " + nextMode);
+    
+    var guideTexts = {
+        'l_side': "左側面を向いて、次の測定を始めてください",
+        'back': "後面を向いて、次の測定を始めてください",
+        'r_side': "右側面を向いて、次の測定を始めてください"
+    };
+    if (guideTexts[nextMode]) {
+        speakGuidance(guideTexts[nextMode]);
+    }
+    
+    var modeSelect = document.getElementById('modeSelect');
+    if (modeSelect) {
+        syncTabButtonsForMode(nextMode);
+        modeSelect.value = nextMode;
+    }
+    updateModeUI(nextMode);
+    
+    // 4. カメラを再起動してLive測定に戻る
+    appMode = "camera";
+    isPausedForEdit = false;
+    isPlaying = false;
+    selectedJointIndex = null;
+    isEditingPlaybackFrame = false;
+    
+    document.getElementById('dpadPanel').style.display = 'none';
+    document.getElementById('playbackControls').style.display = 'none';
+    document.getElementById('mainControls').style.display = 'flex';
+    document.getElementById('editFrameBtn').innerText = "✂️ 微調整";
+    document.getElementById('editFrameBtn').style.background = "var(--accent-orange)";
+    document.getElementById('editFrameBtn').style.color = "#000";
+    
+    startBtn.click();
 }
 
 // V2.5.4 Analysis Category Tab Switcher
@@ -1061,6 +1148,25 @@ function updateInfoPanel() {
     pelvicStatus.innerText = "📐 骨盤傾斜: " + (estimatedPelvicTilt > 0 ? '+' : '') + estimatedPelvicTilt + "°";
 }
 
+// V2.5.8: Capture skeleton canvas as Base64 for report inclusion
+function captureSkeletonImage(mode) {
+    if (!['front', 'back', 'l_side', 'r_side'].includes(mode)) return;
+    
+    var canvas = document.getElementById('canvasMP');
+    if (canvas) {
+        try {
+            var base64 = canvas.toDataURL('image/jpeg', 0.85);
+            if (!window.reportDataStore[mode]) {
+                window.reportDataStore[mode] = [];
+            }
+            window.reportDataStore[mode].capturedImage = base64;
+            console.log("Captured alignment image for mode: " + mode);
+        } catch (e) {
+            console.error("Failed to capture image:", e);
+        }
+    }
+}
+
 // Automatic Scale Ratio Estimation (Biological model based on athlete height)
 function autoEstimateScaleRatio(kps) {
     if (pxToCmRatio) return; // Skip if manually calibrated
@@ -1200,6 +1306,22 @@ window.loadSession = async function(id) {
         if (session) {
             activeSessionId = session.id;
             activePatientName = session.patientName || "ゲスト";
+            
+            // V2.5.8: 過去セッション画像データの復元
+            if (session.images) {
+                Object.keys(session.images).forEach(mode => {
+                    if (!window.reportDataStore[mode]) {
+                        window.reportDataStore[mode] = [];
+                    }
+                    window.reportDataStore[mode].capturedImage = session.images[mode];
+                });
+            } else {
+                ['front', 'back', 'l_side', 'r_side'].forEach(mode => {
+                    if (window.reportDataStore[mode]) {
+                        window.reportDataStore[mode].capturedImage = null;
+                    }
+                });
+            }
             patientNameInput.value = activePatientName;
             
             poseDataLog = session.poseData;
@@ -1723,8 +1845,18 @@ async function stopRecording() {
     appMode = 'playback';
     updateModeUI(currentTab);
 
+    // V2.5.8: 録画完了直後の描画状態を自動キャプチャ
+    captureSkeletonImage(currentTab);
+
     activeSessionId = "sess_" + Date.now();
     activePatientName = patientNameInput.value.trim() || "ゲスト";
+
+    var sessionImages = {};
+    ['front', 'back', 'l_side', 'r_side'].forEach(mode => {
+        if (window.reportDataStore[mode] && window.reportDataStore[mode].capturedImage) {
+            sessionImages[mode] = window.reportDataStore[mode].capturedImage;
+        }
+    });
 
     var sessionData = {
         id: activeSessionId,
@@ -1737,7 +1869,8 @@ async function stopRecording() {
         pxToCmRatio: pxToCmRatio,
         expertComment: activeExpertComment,
         expertExercises: activeExpertExercises,
-        poseData: JSON.parse(JSON.stringify(poseDataLog))
+        poseData: JSON.parse(JSON.stringify(poseDataLog)),
+        images: sessionImages // V2.5.8
     };
 
     try {
@@ -1745,6 +1878,17 @@ async function stopRecording() {
         console.log("Session saved successfully.");
     } catch (e) {
         console.error("Save session failed:", e);
+    }
+    
+    // V2.5.8 Voice Guidance on capture complete
+    var nextLabelsAudio = {
+        'front': "前面の撮影が完了しました。決定して左側面へ進んでください",
+        'l_side': "左側面の撮影が完了しました。決定して後面へ進んでください",
+        'back': "後面の撮影が完了しました。決定して右側面へ進んでください",
+        'r_side': "すべての姿勢撮影が完了しました。決定してレポートを表示してください"
+    };
+    if (nextLabelsAudio[currentTab]) {
+        speakGuidance(nextLabelsAudio[currentTab]);
     }
 
     document.getElementById('mainControls').style.display = 'none';
@@ -1884,6 +2028,42 @@ async function prepareAndPrintReport() {
         <div class="dash-metric"><span>足のサイズ</span><span class="val">${metrics.footSize} cm</span></div>
         <div class="dash-metric"><span>骨盤傾斜角</span><span class="val ${metrics.pelvicTilt !== 0 ? 'warn' : ''}">${metrics.pelvicTilt}°</span></div>
         <div class="dash-metric"><span>スケール</span><span class="val">${metrics.pxToCmRatio ? (1/metrics.pxToCmRatio).toFixed(1) + ' px/cm' : '未校正 (自動推定)'}</span></div>
+    </div>`;
+
+    // Card 1.5: 4-Direction Posture Images (V2.5.8)
+    var imageCardsHtml = "";
+    var modeLabelsJp = { 'front': '前面', 'l_side': '左側面', 'back': '後面', 'r_side': '右側面' };
+    
+    ['front', 'l_side', 'back', 'r_side'].forEach(mode => {
+        var base64 = null;
+        if (window.reportDataStore[mode] && window.reportDataStore[mode].capturedImage) {
+            base64 = window.reportDataStore[mode].capturedImage;
+        }
+        
+        if (base64) {
+            var subInfo = (mode === 'l_side' || mode === 'r_side') ? "ケンダル垂直基準線" : "荷重バランス比率対象";
+            imageCardsHtml += `
+            <div class="report-image-card">
+                <img src="${base64}" alt="${modeLabelsJp[mode]}">
+                <div class="report-image-label">🧍 ${modeLabelsJp[mode]}</div>
+                <div class="report-image-sub">${subInfo}</div>
+            </div>`;
+        } else {
+            imageCardsHtml += `
+            <div class="report-image-card" style="opacity: 0.4;">
+                <div style="aspect-ratio:4/3; background:#0f1c3f; border: 1px dashed rgba(255,255,255,0.2); border-radius:4px; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); font-size:11px;">未測定</div>
+                <div class="report-image-label">🧍 ${modeLabelsJp[mode]}</div>
+                <div class="report-image-sub">データなし</div>
+            </div>`;
+        }
+    });
+
+    gridHtml += `
+    <div class="dash-card report-image-section" style="grid-column: 1 / -1;">
+        <div class="report-image-title">📸 静止姿勢アライメント 4方向分析画像</div>
+        <div class="report-image-grid">
+            ${imageCardsHtml}
+        </div>
     </div>`;
 
     // Card 2: Weight bearing card
