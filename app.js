@@ -29,6 +29,7 @@ var isSelfie = false; // V2.5
 var cameraFacingMode = "environment"; // V2.5
 var isAutoRecReady = false; // V2.5.1
 var autoRecStandbyTimer = null; // V2.5.1
+var currentCategory = "static"; // V2.5.4
 
 var playbackDataMP = [];
 var mainRenderId = null;
@@ -71,7 +72,7 @@ window.customOriginMarkers = {};
 window.anchorStatus = "unlocked";
 
 var DURATION_MAP = {
-    'front': 10000, 'back': 5000, 'l_side': 5000, 'r_side': 5000,
+    'front': 5000, 'back': 5000, 'l_side': 5000, 'r_side': 5000,
     'dyn_overhead': 15000, 'dyn_overhead_side': 15000,
     'dyn_single_r': 15000, 'dyn_single_l': 15000,
     'dyn_flex_fwd': 10000, 'dyn_flex_bwd': 10000,
@@ -709,6 +710,9 @@ function updateModeUI(mode) {
     var durationSelect = document.getElementById('durationSelect');
     if (durationSelect) durationSelect.value = recordingDuration.toString();
     
+    // V2.5.4 Tab visual sync when loading URL deep link or switching modes directly
+    syncTabButtonsForMode(currentTab);
+    
     var modeSelect = document.getElementById('modeSelect');
     if (modeSelect) modeSelect.value = currentTab;
     
@@ -730,6 +734,110 @@ function updateModeUI(mode) {
     
     swayHistoryMP = [];
     biomechanics.clearRadar(ctxRadarMP, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
+}
+
+// V2.5.4 Analysis Category Tab Switcher
+function switchAnalysisTab(category) {
+    if (category !== 'static' && category !== 'dynamic') return;
+    currentCategory = category;
+    
+    // Update tab button classes
+    var tabStatic = document.getElementById('tabStaticBtn');
+    var tabDynamic = document.getElementById('tabDynamicBtn');
+    if (tabStatic && tabDynamic) {
+        if (category === 'static') {
+            tabStatic.classList.add('active');
+            tabDynamic.classList.remove('active');
+        } else {
+            tabStatic.classList.remove('active');
+            tabDynamic.classList.add('active');
+        }
+    }
+    
+    // Filter the dropdown list options
+    filterModeDropdown();
+    
+    // Auto select first mode in the active category
+    var modeSelect = document.getElementById('modeSelect');
+    if (modeSelect) {
+        var firstVal = (category === 'static') ? 'front' : 'dyn_overhead';
+        modeSelect.value = firstVal;
+        updateModeUI(firstVal);
+    }
+}
+
+// Filter mode select options depending on the active tab category
+function filterModeDropdown() {
+    var modeSelect = document.getElementById('modeSelect');
+    if (!modeSelect) return;
+    
+    // Clear current options
+    modeSelect.innerHTML = "";
+    
+    if (currentCategory === 'static') {
+        var optGroup = document.createElement('optgroup');
+        optGroup.label = "■ 静止姿勢アライメント (順序順)";
+        
+        var options = [
+            { val: 'front', label: '🧍 前面' },
+            { val: 'l_side', label: '🧍 左側面' },
+            { val: 'back', label: '🧍 後面' },
+            { val: 'r_side', label: '🧍 右側面' }
+        ];
+        
+        options.forEach(opt => {
+            var el = document.createElement('option');
+            el.value = opt.val;
+            el.innerText = opt.label;
+            optGroup.appendChild(el);
+        });
+        modeSelect.appendChild(optGroup);
+    } else {
+        var optGroup = document.createElement('optgroup');
+        optGroup.label = "■ 動的機能評価";
+        
+        var options = [
+            { val: 'dyn_overhead', label: '🏋️ OHS [前面]' },
+            { val: 'dyn_overhead_side', label: '🏋️ OHS [側面]' },
+            { val: 'dyn_single_r', label: '🦵 片脚バランス [右軸]' },
+            { val: 'dyn_single_l', label: '🦵 片脚バランス [左軸]' },
+            { val: 'dyn_flex_fwd', label: '🙇 立位体前屈' },
+            { val: 'dyn_flex_bwd', label: '🤸 立位体後屈' },
+            { val: 'dyn_shoulder_r', label: '👐 肩複合可動性 [右上]' },
+            { val: 'dyn_shoulder_l', label: '👐 肩複合可動性 [左上]' }
+        ];
+        
+        options.forEach(opt => {
+            var el = document.createElement('option');
+            el.value = opt.val;
+            el.innerText = opt.label;
+            optGroup.appendChild(el);
+        });
+        modeSelect.appendChild(optGroup);
+    }
+}
+
+// Automatically switch and sync tab active visual when deep mode changes
+function syncTabButtonsForMode(mode) {
+    var isStaticMode = ['front', 'back', 'l_side', 'r_side'].includes(mode);
+    var category = isStaticMode ? 'static' : 'dynamic';
+    
+    if (currentCategory !== category) {
+        currentCategory = category;
+        filterModeDropdown();
+    }
+    
+    var tabStatic = document.getElementById('tabStaticBtn');
+    var tabDynamic = document.getElementById('tabDynamicBtn');
+    if (tabStatic && tabDynamic) {
+        if (category === 'static') {
+            tabStatic.classList.add('active');
+            tabDynamic.classList.remove('active');
+        } else {
+            tabStatic.classList.remove('active');
+            tabDynamic.classList.add('active');
+        }
+    }
 }
 
 function checkDeviceType() {
@@ -1252,6 +1360,8 @@ async function init() {
         startBtn.disabled = false; 
         updateInfoPanel();
         updateCameraModeBadge(); // V2.5.1
+        filterModeDropdown(); // V2.5.4
+        syncTabButtonsForMode(currentTab); // V2.5.4
         
         // iOS Gyro permission button binding
         document.getElementById('submitGyroPermissionBtn').onclick = requestDeviceOrientationPermission;

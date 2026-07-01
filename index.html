@@ -251,6 +251,11 @@
                 
                 <button id="calibrateMatBtn" class="purple-btn">📏 マット校正(45cm)</button>
 
+                <div class="analysis-tabs">
+                    <button type="button" id="tabStaticBtn" class="analysis-tab active" onclick="switchAnalysisTab('static')">🧍 静止姿勢</button>
+                    <button type="button" id="tabDynamicBtn" class="analysis-tab" onclick="switchAnalysisTab('dynamic')">🏋️ 動作解析</button>
+                </div>
+
                 <select id="modeSelect" class="mode-dropdown">
                     <optgroup label="■ 静止姿勢アライメント">
                         <option value="front" selected>🧍 前面</option>
