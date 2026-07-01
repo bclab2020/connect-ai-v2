@@ -1240,11 +1240,75 @@ select:hover {
 .recording-active #tiltPanel,
 .recording-active #radarWrapperMP,
 .recording-active .hud-label,
+.recording-active .camera-mode-badge,
 .recording-active .info-panel,
+.recording-active #autoRecReadyMessage,
 .recording-active #gyroLevelContainer {
     opacity: 0 !important;
     pointer-events: none !important;
     transition: opacity 0.5s ease !important;
+}
+
+/* カメラモードバッジ */
+.camera-mode-badge {
+    position: absolute;
+    top: 60px;
+    left: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 6px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 100;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transition: all 0.3s ease;
+    pointer-events: none;
+    background: rgba(0, 230, 118, 0.15);
+    color: #00e676;
+    border: 1px solid rgba(0, 230, 118, 0.3);
+}
+
+.camera-mode-badge.selfie-active {
+    background: rgba(0, 191, 255, 0.15);
+    color: #00bfff;
+    border: 1px solid rgba(0, 191, 255, 0.3);
+}
+
+/* 自撮りモードアクティブ時のトグルボタンの強調 */
+.ui-top-btn.selfie-active {
+    background: rgba(0, 191, 255, 0.25) !important;
+    color: #00bfff !important;
+    border-color: #00bfff !important;
+    box-shadow: 0 0 10px rgba(0, 191, 255, 0.4) !important;
+}
+
+/* 自動録画スタンバイ案内メッセージ */
+.auto-rec-ready-message {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: 800;
+    color: #ffeb3b;
+    text-shadow: 0 4px 15px rgba(0,0,0,0.9), 0 0 10px rgba(255, 235, 59, 0.5);
+    z-index: 900;
+    pointer-events: none;
+    background: rgba(5, 8, 17, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 14px 28px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(255, 235, 59, 0.4);
+    animation: ready-pulse 0.8s infinite alternate;
+    text-align: center;
+    white-space: nowrap;
+}
+
+@keyframes ready-pulse {
+    0% { opacity: 0.75; transform: translate(-50%, -50%) scale(0.96); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1.02); }
 }
 
 /* スマホ表示 (768px未満) の場合のレスポンシブスタイル */
@@ -1287,6 +1351,15 @@ select:hover {
         padding: 6px 12px;
         border-radius: 8px;
         max-width: 80%;
+    }
+
+    /* モードバッジをスマホに最適化 */
+    .camera-mode-badge {
+        top: 52px;
+        left: 15px;
+        font-size: 10px;
+        padding: 4px 8px;
+        z-index: 101;
     }
 
     /* 情報ステータス */

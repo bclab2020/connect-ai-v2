@@ -27,6 +27,8 @@ var isAutoRecActive = false;
 var isMobileView = false;
 var isSelfie = false; // V2.5
 var cameraFacingMode = "environment"; // V2.5
+var isAutoRecReady = false; // V2.5.1
+var autoRecStandbyTimer = null; // V2.5.1
 
 var playbackDataMP = [];
 var mainRenderId = null;
@@ -179,13 +181,36 @@ if (toggleCameraModeBtn) {
     toggleCameraModeBtn.onclick = function() {
         cameraFacingMode = (cameraFacingMode === "environment") ? "user" : "environment";
         isSelfie = (cameraFacingMode === "user");
-        this.innerText = isSelfie ? "🧍 他撮りモード" : "🤳 自撮りモード";
+        updateCameraModeBadge();
         
         // Auto restart if camera is already running
         if (isRunning) {
             startBtn.click();
         }
     };
+}
+
+// V2.5.1 Camera Mode Badge Update Handler
+function updateCameraModeBadge() {
+    var badge = document.getElementById('cameraModeBadge');
+    var toggleBtn = document.getElementById('toggleCameraModeBtn');
+    if (!badge) return;
+    
+    if (isSelfie) {
+        badge.innerText = "🤳 自撮り（鏡像表示）";
+        badge.classList.add('selfie-active');
+        if (toggleBtn) {
+            toggleBtn.innerText = "🧍 他撮りモード";
+            toggleBtn.classList.add('selfie-active');
+        }
+    } else {
+        badge.innerText = "🧍 他撮り（通常表示）";
+        badge.classList.remove('selfie-active');
+        if (toggleBtn) {
+            toggleBtn.innerText = "🤳 自撮りモード";
+            toggleBtn.classList.remove('selfie-active');
+        }
+    }
 }
 
 // Specialist Authorization check
@@ -713,16 +738,6 @@ function checkDeviceType() {
     if (container) {
         container.style.display = (isMobileView && isRunning && appMode === 'camera') ? 'flex' : 'none';
     }
-    
-    // スマホ起動時・リサイズ時に自動でUI設定を折りたたみ、主要ボタンは残して画面をすっきりさせる
-    if (isMobileView) {
-        var settings = document.getElementById('settingsWrapper');
-        var btn = document.getElementById('toggleUiBtn');
-        if (settings && btn && settings.style.display !== 'none' && !isRecording && appMode === 'camera') {
-            settings.style.display = 'none';
-            btn.innerText = '🔼 UIを表示';
-        }
-    }
 }
 window.addEventListener('resize', checkDeviceType);
 
@@ -773,6 +788,11 @@ function updateDigitalLevel() {
 
     var pitchErr = smoothOrientation.beta - 90; // Pitch error (vertical offset)
     var rollErr = smoothOrientation.gamma; // Roll error (horizontal tilt)
+
+    // V2.5.1: 自撮り（鏡像）時は水準器のドットの左右反応を反転して操作性を一致させる
+    if (isSelfie) {
+        rollErr = -rollErr;
+    }
 
     // Scale errors for visualization inside circular HUD
     var scaleFactor = 3.5;
@@ -826,6 +846,26 @@ function checkAthleteVisibility(kps) {
     isAthleteFullyVisible = (visibleCount === requiredJoints.length);
 }
 
+function triggerAutoRecStandby() {
+    if (isAutoRecReady || isAutoRecActive || isRecording) return;
+    isAutoRecReady = true;
+    
+    var readyMsg = document.getElementById('autoRecReadyMessage');
+    if (readyMsg) {
+        readyMsg.innerText = "Ready... 静止してください";
+        readyMsg.style.display = 'block';
+    }
+    
+    // V2.5.1: 2秒間姿勢をキープしたらカウントダウンへ移行
+    autoRecStandbyTimer = setTimeout(function() {
+        if (isAutoRecReady) {
+            if (readyMsg) readyMsg.style.display = 'none';
+            isAutoRecReady = false;
+            triggerAutoRecCountdown();
+        }
+    }, 2000);
+}
+
 function triggerAutoRecCountdown() {
     isAutoRecActive = true;
     autoRecCountdownVal = 3;
@@ -851,6 +891,14 @@ function triggerAutoRecCountdown() {
 }
 
 function resetAutoRecCountdown() {
+    if (isAutoRecReady) {
+        clearTimeout(autoRecStandbyTimer);
+        autoRecStandbyTimer = null;
+        isAutoRecReady = false;
+        var readyMsg = document.getElementById('autoRecReadyMessage');
+        if (readyMsg) readyMsg.style.display = 'none';
+    }
+    
     if (isAutoRecActive) {
         clearInterval(autoRecCountdownTimer);
         autoRecCountdownTimer = null;
@@ -1203,6 +1251,7 @@ async function init() {
         startBtn.innerText = "📷 フルHD起動"; 
         startBtn.disabled = false; 
         updateInfoPanel();
+        updateCameraModeBadge(); // V2.5.1
         
         // iOS Gyro permission button binding
         document.getElementById('submitGyroPermissionBtn').onclick = requestDeviceOrientationPermission;
@@ -1240,6 +1289,7 @@ startBtn.onclick = async function() {
     document.getElementById('playbackControls').style.display = 'none';
     document.getElementById('mainControls').style.display = 'flex';
     document.getElementById('recBtn').disabled = false;
+    updateCameraModeBadge(); // V2.5.1
     
     try {
         var constraints = {
@@ -1391,8 +1441,10 @@ async function render(sessionId) {
         // Mobile Auto-REC check
         if (appMode === 'camera' && isRunning) {
             checkAthleteVisibility(kps);
-            if (isMobileView && isDeviceVertical && isAthleteFullyVisible && !isRecording && !isAutoRecActive) {
-                triggerAutoRecCountdown();
+            if (isMobileView && isDeviceVertical && isAthleteFullyVisible && !isRecording) {
+                if (!isAutoRecActive && !isAutoRecReady) {
+                    triggerAutoRecStandby();
+                }
             } else if (isMobileView && (!isDeviceVertical || !isAthleteFullyVisible)) {
                 resetAutoRecCountdown();
             }
@@ -1564,6 +1616,7 @@ function exitPlaybackMode() {
     
     checkDeviceType();
     updateModeUI(currentTab);
+    updateCameraModeBadge(); // V2.5.1
     
     document.getElementById('dpadPanel').style.display = 'none';
     document.getElementById('playbackControls').style.display = 'none';
