@@ -198,17 +198,17 @@ function updateCameraModeBadge() {
     if (!badge) return;
     
     if (isSelfie) {
-        badge.innerText = "🤳 自撮り（鏡像表示）";
+        badge.innerText = "🤳 セルフ撮影（鏡像）";
         badge.classList.add('selfie-active');
         if (toggleBtn) {
-            toggleBtn.innerText = "🧍 他撮りモード";
+            toggleBtn.innerText = "🧍 通常撮影へ";
             toggleBtn.classList.add('selfie-active');
         }
     } else {
-        badge.innerText = "🧍 他撮り（通常表示）";
+        badge.innerText = "🧍 通常撮影（標準）";
         badge.classList.remove('selfie-active');
         if (toggleBtn) {
-            toggleBtn.innerText = "🤳 自撮りモード";
+            toggleBtn.innerText = "🤳 セルフ撮影へ";
             toggleBtn.classList.remove('selfie-active');
         }
     }
@@ -954,9 +954,24 @@ function checkAthleteVisibility(kps) {
     isAthleteFullyVisible = (visibleCount === requiredJoints.length);
 }
 
+// V2.5.6: Voice Guidance Helper using Web Speech API
+function speakGuidance(text) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Cancel any ongoing speak immediately for responsive feedback
+        var utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ja-JP';
+        utterance.volume = 1.0;
+        utterance.rate = 1.2; // Slightly fast speech rate for tempo
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
 function triggerAutoRecStandby() {
     if (isAutoRecReady || isAutoRecActive || isRecording) return;
     isAutoRecReady = true;
+    
+    // V2.5.6 Voice Guidance
+    speakGuidance("レディ");
     
     var readyMsg = document.getElementById('autoRecReadyMessage');
     if (readyMsg) {
@@ -983,15 +998,27 @@ function triggerAutoRecCountdown() {
     
     document.body.classList.add('recording-active');
 
+    // V2.5.6 Voice Guidance - First count
+    speakGuidance("さん");
+
     autoRecCountdownTimer = setInterval(function() {
         autoRecCountdownVal--;
         if (autoRecCountdownVal > 0) {
             overlay.innerText = autoRecCountdownVal;
+            // V2.5.6 Voice Guidance
+            var countWords = { 2: "にい", 1: "いち" };
+            if (countWords[autoRecCountdownVal]) {
+                speakGuidance(countWords[autoRecCountdownVal]);
+            }
         } else {
             clearInterval(autoRecCountdownTimer);
             autoRecCountdownTimer = null;
             overlay.style.display = 'none';
             isAutoRecActive = false;
+            
+            // V2.5.6 Voice Guidance
+            speakGuidance("スタート");
+            
             // Trigger actual record click
             recBtn.click();
         }
@@ -999,6 +1026,8 @@ function triggerAutoRecCountdown() {
 }
 
 function resetAutoRecCountdown() {
+    var wasActive = isAutoRecReady || isAutoRecActive;
+    
     if (isAutoRecReady) {
         clearTimeout(autoRecStandbyTimer);
         autoRecStandbyTimer = null;
@@ -1017,6 +1046,11 @@ function resetAutoRecCountdown() {
         if (!isRecording) {
             document.body.classList.remove('recording-active');
         }
+    }
+    
+    // V2.5.6 Voice Guidance on Reset (only if we were actually in standby/countdown state)
+    if (wasActive) {
+        speakGuidance("リセット");
     }
 }
 
@@ -1551,11 +1585,12 @@ async function render(sessionId) {
         // Mobile Auto-REC check
         if (appMode === 'camera' && isRunning) {
             checkAthleteVisibility(kps);
-            if (isMobileView && isDeviceVertical && isAthleteFullyVisible && !isRecording) {
+            // V2.5.5: 自動録画（スタンバイ➡カウントダウン）はセルフ撮影（インカメラ）の時のみ作動させる
+            if (isMobileView && isSelfie && isDeviceVertical && isAthleteFullyVisible && !isRecording) {
                 if (!isAutoRecActive && !isAutoRecReady) {
                     triggerAutoRecStandby();
                 }
-            } else if (isMobileView && (!isDeviceVertical || !isAthleteFullyVisible)) {
+            } else if (isMobileView && (!isSelfie || !isDeviceVertical || !isAthleteFullyVisible)) {
                 resetAutoRecCountdown();
             }
         }
