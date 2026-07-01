@@ -33,7 +33,7 @@ var currentCategory = "static"; // V2.5.4
 
 var playbackDataMP = [];
 var mainRenderId = null;
-var recordingDuration = 10000;
+var recordingDuration = 5000;
 var coordinateBufferMP = [];
 var poseDataLog = [];
 var playbackRafId = null;
@@ -1514,6 +1514,7 @@ async function init() {
         updateCameraModeBadge(); // V2.5.1
         filterModeDropdown(); // V2.5.4
         syncTabButtonsForMode(currentTab); // V2.5.4
+        updateModeUI(currentTab); // V2.5.9.1: 起動時に最初のモードUIと秒数を強制同期
         
         // iOS Gyro permission button binding
         document.getElementById('submitGyroPermissionBtn').onclick = requestDeviceOrientationPermission;
