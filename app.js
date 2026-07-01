@@ -1443,15 +1443,27 @@ startBtn.onclick = async function() {
             }
         };
         if (isMobileView) {
-            // V2.5: モバイル時はトグルで選択した向き（自撮り / 他撮り）を優先
-            constraints.video.facingMode = { ideal: cameraFacingMode };
+            // V2.5.7: モバイル時は選択したモードのカメラへ確実に強制固定する (exact)
+            constraints.video.facingMode = { exact: cameraFacingMode };
         } else if (videoSource.value) {
             constraints.video.deviceId = { exact: videoSource.value };
         } else {
             constraints.video.facingMode = { ideal: "environment" };
         }
         
-        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        try {
+            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (err) {
+            console.warn("Exact facingMode constraint failed, falling back to ideal:", err);
+            // V2.5.7: フォールバック（PCや背面カメラのない特殊環境用）
+            if (constraints.video.facingMode) {
+                constraints.video.facingMode = { ideal: cameraFacingMode };
+            }
+            if (constraints.video.deviceId) {
+                delete constraints.video.deviceId;
+            }
+            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        }
         video.srcObject = currentStream;
         video.onloadeddata = function() { 
             canvasMP.width = video.videoWidth; 
