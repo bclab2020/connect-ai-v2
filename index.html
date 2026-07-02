@@ -302,6 +302,7 @@
             
             <button id="downloadCsvBtn" class="green-btn" disabled>📊 CSV</button>
             <button id="printReportBtn" class="orange-btn" onclick="prepareAndPrintReport()">📄 レポート</button>
+            <button id="showViewerBtn" class="green-btn" style="font-weight:bold; border-color:var(--accent-teal); color:var(--accent-teal); background:rgba(0,191,255,0.15);">🔍 結果閲覧</button>
             <button id="nextMeasureBtn" class="green-btn active-pulse" style="display:none; font-weight:bold; border-color:var(--accent-green); color:var(--accent-green); background:rgba(57,255,20,0.15); box-shadow:0 0 10px rgba(57,255,20,0.25);">決定して左側面へ ➡</button>
         </div>
     </div>
@@ -380,6 +381,77 @@ window.addEventListener('load', () => {
     }, 1200); // Wait for BlazePose to load
 });
 </script>
+
+<!-- Client Viewer Area (V2.7.0 App-based interactiveビューアー) -->
+<div id="clientViewerArea" class="client-viewer-container" style="display:none;">
+    <div class="viewer-header">
+        <button id="closeViewerBtn" class="viewer-back-btn">🔙 戻る</button>
+        <h2 id="viewerTitle">📊 姿勢 & 筋骨格アセスメント</h2>
+        <button id="viewerPrintBtn" class="viewer-print-btn" onclick="prepareAndPrintReport()">📄 印刷</button>
+    </div>
+    
+    <div class="viewer-content">
+        <!-- 1. Profile / Score Card -->
+        <div class="viewer-card hero-card">
+            <div class="profile-meta">
+                <span class="profile-name" id="viewProfileName">サラ J. 様</span>
+                <span class="profile-date" id="viewProfileDate">2026/07/02 16:53</span>
+            </div>
+            <div class="score-circle-wrapper">
+                <div class="score-circle">
+                    <span class="score-num" id="viewScoreNum">88</span>
+                    <span class="score-lbl">姿勢スコア</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 2. Interactive Image Grid -->
+        <div class="viewer-section-title">🧍 姿勢スキャン（全4方向）</div>
+        <p class="viewer-section-desc">※画像をタップすると拡大表示されます</p>
+        <div class="viewer-image-grid">
+            <div class="viewer-image-card" onclick="openFullscreenModal('front')">
+                <span class="card-tag">前面 (Front)</span>
+                <img id="viewImgFront" src="./demo_front.png" alt="前面">
+            </div>
+            <div class="viewer-image-card" onclick="openFullscreenModal('back')">
+                <span class="card-tag">後面 (Back)</span>
+                <img id="viewImgBack" src="./demo_back.png" alt="後面">
+            </div>
+            <div class="viewer-image-card" onclick="openFullscreenModal('l_side')">
+                <span class="card-tag">左側面 (L-Side)</span>
+                <img id="viewImgLSide" src="./demo_side.png" alt="左側面">
+            </div>
+            <div class="viewer-image-card" onclick="openFullscreenModal('r_side')">
+                <span class="card-tag">右側面 (R-Side)</span>
+                <img id="viewImgRSide" src="./demo_right.png" alt="右側面">
+            </div>
+        </div>
+        
+        <!-- 3. Metrics Detail Card -->
+        <div class="viewer-section-title">📐 測定指標・アライメント</div>
+        <div class="viewer-metrics-list" id="viewMetricsList">
+            <!-- Dynamically populated card rows -->
+        </div>
+        
+        <!-- 4. AI assessment & Exercises -->
+        <div class="viewer-section-title">💡 姿勢改善アドバイス ＆ トレーニング</div>
+        <div class="viewer-card text-card" id="viewAiReportText">
+            AIアセスメントレポートを取得中、またはデモデータが表示されています。
+        </div>
+        
+        <div class="viewer-section-title">🏋️ 自宅でできる改善エクササイズ</div>
+        <div class="viewer-exercises-grid" id="viewExercisesGrid">
+            <!-- Dynamically populated exercises -->
+        </div>
+    </div>
+</div>
+
+<!-- Fullscreen Image Modal -->
+<div id="fullscreenImgModal" class="fullscreen-modal" style="display:none;" onclick="closeFullscreenModal()">
+    <span class="modal-close-x" onclick="event.stopPropagation(); closeFullscreenModal();">✖</span>
+    <img id="fullscreenImgTarget" src="" alt="拡大画像">
+    <div id="fullscreenImgCaption" class="modal-caption">前面</div>
+</div>
 
 </body>
 </html>

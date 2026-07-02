@@ -643,5 +643,231 @@ var biomechanics = {
         ctxRadar.lineWidth = 1.5;
         ctxRadar.stroke();
         ctxRadar.restore();
+    },
+
+    /**
+     * Draws a futuristic double HUD ring around joint nodes to represent moments.
+     * V2.6.0
+     */
+    drawMomentRing: function(ctx, cx, cy, r, color = 'rgba(255, 82, 82, 0.65)', thickness = 1.5) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = thickness;
+        
+        // 1. Inner solid circle
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+        ctx.stroke();
+        
+        // 2. Outer dashed ticks circle
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 4]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 4, 0, 2 * Math.PI);
+        ctx.stroke();
+        
+        // 3. Side brackets
+        ctx.setLineDash([]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 8, -Math.PI / 4, Math.PI / 4);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 8, Math.PI * 3 / 4, Math.PI * 5 / 4);
+        ctx.stroke();
+        
+        ctx.restore();
+    },
+
+    /**
+     * Draws a semi-transparent HSL color-coded muscle polygon (fusiform) and leader label.
+     * V2.6.0
+     */
+    drawMuscleSegment: function(ctx, p1, p2, thickness, type, labelText) {
+        ctx.save();
+        var dx = p2.x - p1.x;
+        var dy = p2.y - p1.y;
+        var len = Math.sqrt(dx*dx + dy*dy);
+        if (len < 5) { ctx.restore(); return; }
+        
+        var normalX = -dy / len;
+        var normalY = dx / len;
+        
+        var midX = (p1.x + p2.x) / 2;
+        var midY = (p1.y + p2.y) / 2;
+        
+        ctx.beginPath();
+        ctx.moveTo(p1.x + normalX * (thickness * 0.3), p1.y + normalY * (thickness * 0.3));
+        ctx.quadraticCurveTo(midX + normalX * thickness, midY + normalY * thickness, p2.x + normalX * (thickness * 0.3), p2.y + normalY * (thickness * 0.3));
+        ctx.lineTo(p2.x - normalX * (thickness * 0.3), p2.y - normalY * (thickness * 0.3));
+        ctx.quadraticCurveTo(midX - normalX * thickness, midY - normalY * thickness, p1.x - normalX * (thickness * 0.3), p1.y - normalY * (thickness * 0.3));
+        ctx.closePath();
+        
+        if (type === 'tight') {
+            ctx.fillStyle = 'rgba(255, 82, 82, 0.28)'; 
+            ctx.strokeStyle = 'rgba(255, 82, 82, 0.6)';
+        } else if (type === 'weak') {
+            ctx.fillStyle = 'rgba(0, 191, 255, 0.25)'; 
+            ctx.strokeStyle = 'rgba(0, 191, 255, 0.55)';
+        } else {
+            ctx.restore(); return; 
+        }
+        
+        ctx.lineWidth = 1.5;
+        ctx.fill();
+        ctx.stroke();
+        
+        if (labelText) {
+            ctx.beginPath();
+            ctx.strokeStyle = type === 'tight' ? 'rgba(255, 82, 82, 0.8)' : 'rgba(0, 191, 255, 0.8)';
+            ctx.lineWidth = 1;
+            
+            var startX = midX + normalX * (thickness * 0.8);
+            var startY = midY + normalY * (thickness * 0.8);
+            
+            var labelDir = dx > 0 ? 1 : -1; 
+            if (Math.abs(dx) < 10) labelDir = normalX > 0 ? 1 : -1;
+            
+            var breakX = startX + labelDir * 40;
+            var breakY = startY - 15;
+            var endX = breakX + labelDir * 35;
+            
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(breakX, breakY);
+            ctx.lineTo(endX, breakY);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = labelDir > 0 ? 'left' : 'right';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(labelText, breakX + labelDir * 4, breakY - 3);
+            
+            ctx.fillStyle = type === 'tight' ? '#ff5252' : '#00bfff';
+            ctx.font = '9px sans-serif';
+            var stateText = type === 'tight' ? '（過緊張）' : '（筋力低下）';
+            ctx.fillText(stateText, breakX + labelDir * 4, breakY + 12);
+        }
+        
+        ctx.restore();
+    },
+
+    /**
+     * Main musculoskeletal visualization pipeline for static 4-direction postures.
+     * V2.6.0
+     */
+    drawMusculoskeletalAnatomy: function(ctx, kps, mode, pxToCmRatio, footSize, pelvicTilt, w, h) {
+        if (!kps || !['front', 'back', 'l_side', 'r_side'].includes(mode)) return;
+        
+        ctx.save();
+        
+        var nose = kps[0];
+        var lSh = kps[11], rSh = kps[12];
+        var lHip = kps[23], rHip = kps[24];
+        var lKnee = kps[25], rKnee = kps[26];
+        var lAnk = kps[27], rAnk = kps[28];
+        var ear = (mode === 'l_side') ? kps[7] : kps[8];
+        
+        if (mode === 'l_side' || mode === 'r_side') {
+            var isLeft = mode === 'l_side';
+            var sh = isLeft ? lSh : rSh;
+            var hip = isLeft ? lHip : rHip;
+            var knee = isLeft ? lKnee : rKnee;
+            var ank = isLeft ? lAnk : rAnk;
+            
+            if (ear && sh && hip && knee && ank) {
+                var dxEarSh = Math.abs(ear.x - sh.x);
+                var cmEarSh = pxToCmRatio ? dxEarSh * pxToCmRatio : dxEarSh * 0.25;
+                
+                if (cmEarSh >= 2.5) {
+                    this.drawMuscleSegment(ctx, sh, ear, 12, 'tight', '板状筋・僧帽筋');
+                }
+                
+                if (pelvicTilt >= 5) {
+                    this.drawMuscleSegment(ctx, hip, sh, 16, 'tight', '脊柱起立筋');
+                    this.drawMuscleSegment(ctx, hip, knee, 20, 'tight', '大腿直筋');
+                    this.drawMuscleSegment(ctx, hip, { x: (sh.x + hip.x)/2 + (isLeft ? -15 : 15), y: (sh.y + hip.y)/2 }, 15, 'weak', '腹直筋');
+                    this.drawMuscleSegment(ctx, hip, knee, 18, 'weak', 'ハムストリングス');
+                } else if (pelvicTilt <= -3) {
+                    this.drawMuscleSegment(ctx, hip, knee, 18, 'tight', 'ハムストリングス');
+                    this.drawMuscleSegment(ctx, hip, { x: (sh.x + hip.x)/2 + (isLeft ? -15 : 15), y: (sh.y + hip.y)/2 }, 15, 'tight', '腹直筋');
+                    this.drawMuscleSegment(ctx, hip, sh, 16, 'weak', '脊柱起立筋');
+                }
+                
+                var lineX = hip.x + (ank.x - hip.x) * ((knee.y - hip.y) / (ank.y - hip.y));
+                var diffKnee = (knee.x - lineX) * (isLeft ? 1 : -1); 
+                var cmKnee = pxToCmRatio ? diffKnee * pxToCmRatio : diffKnee * 0.25;
+                
+                if (cmKnee > 2.0) {
+                    this.drawMuscleSegment(ctx, hip, knee, 20, 'tight', '大腿四頭筋');
+                    this.drawMuscleSegment(ctx, knee, ank, 16, 'tight', '腓腹筋');
+                    
+                    // Draw HUD moment ring around side knee
+                    var ringColor = cmKnee > 4.0 ? 'rgba(255, 82, 82, 0.7)' : 'rgba(0, 191, 255, 0.6)';
+                    this.drawMomentRing(ctx, knee.x, knee.y, 24, ringColor, 1.5);
+                }
+            }
+        }
+        else if (mode === 'front' || mode === 'back') {
+            if (lSh && rSh && lHip && rHip && lKnee && rKnee && lAnk && rAnk) {
+                var dySh = lSh.y - rSh.y; 
+                var cmSh = pxToCmRatio ? Math.abs(dySh) * pxToCmRatio : Math.abs(dySh) * 0.25;
+                
+                if (cmSh >= 1.5) {
+                    var higherSh = dySh < 0 ? lSh : rSh;
+                    var earPoint = dySh < 0 ? kps[7] : kps[8];
+                    if (earPoint) {
+                        this.drawMuscleSegment(ctx, higherSh, earPoint, 12, 'tight', '僧帽筋');
+                    }
+                }
+                
+                var checkKneeIn = function(hip, knee, ank, isLeftLeg) {
+                    var lineX = hip.x + (ank.x - hip.x) * ((knee.y - hip.y) / (ank.y - hip.y));
+                    var diffX = knee.x - lineX; 
+                    var innerDiff = isLeftLeg ? diffX : -diffX;
+                    var cmDiff = pxToCmRatio ? innerDiff * pxToCmRatio : innerDiff * 0.25;
+                    
+                    if (cmDiff > 2.5) {
+                        return 'tight';
+                    } else if (cmDiff < -2.5) {
+                        return 'weak';
+                    }
+                    return 'normal';
+                };
+                
+                var lKneeState = checkKneeIn(lHip, lKnee, lAnk, true);
+                var rKneeState = checkKneeIn(rHip, rKnee, rAnk, false);
+                
+                if (lKneeState === 'tight') {
+                    this.drawMuscleSegment(ctx, lHip, lKnee, 20, 'tight', '内転筋群 (左)');
+                    this.drawMomentRing(ctx, lKnee.x, lKnee.y, 24, 'rgba(255, 82, 82, 0.7)', 1.5);
+                } else if (lKneeState === 'weak') {
+                    this.drawMuscleSegment(ctx, lHip, lKnee, 18, 'weak', '中臀筋 (左)');
+                    this.drawMomentRing(ctx, lKnee.x, lKnee.y, 24, 'rgba(0, 191, 255, 0.6)', 1.5);
+                }
+                
+                if (rKneeState === 'tight') {
+                    this.drawMuscleSegment(ctx, rHip, rKnee, 20, 'tight', '内転筋群 (右)');
+                    this.drawMomentRing(ctx, rKnee.x, rKnee.y, 24, 'rgba(255, 82, 82, 0.7)', 1.5);
+                } else if (rKneeState === 'weak') {
+                    this.drawMuscleSegment(ctx, rHip, rKnee, 18, 'weak', '中臀筋 (右)');
+                    this.drawMomentRing(ctx, rKnee.x, rKnee.y, 24, 'rgba(0, 191, 255, 0.6)', 1.5);
+                }
+                
+                var dyHip = lHip.y - rHip.y;
+                var cmHip = pxToCmRatio ? Math.abs(dyHip) * pxToCmRatio : Math.abs(dyHip) * 0.25;
+                if (cmHip >= 1.5) {
+                    var higherHip = dyHip < 0 ? lHip : rHip;
+                    var higherSh = dyHip < 0 ? lSh : rSh;
+                    var lowerHip = dyHip < 0 ? rHip : lHip;
+                    var lowerSh = dyHip < 0 ? rSh : lSh;
+                    
+                    this.drawMuscleSegment(ctx, higherHip, higherSh, 16, 'tight', '腰方形筋');
+                    this.drawMuscleSegment(ctx, lowerHip, lowerSh, 16, 'weak', '腹斜筋群');
+                }
+            }
+        }
+        
+        ctx.restore();
     }
 };

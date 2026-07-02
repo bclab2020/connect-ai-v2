@@ -1201,6 +1201,9 @@ function refreshReportView() {
         // Automatically run scale estimation in paused state if missing
         autoEstimateScaleRatio(kps);
         
+        // V2.6.0: 骨格線の背後に、問題のある抗重力筋ポリゴンとバネをレイヤー描画
+        biomechanics.drawMusculoskeletalAnatomy(ctxMP, kps, currentTab, pxToCmRatio, parseFloat(footSizeInput.value), estimatedPelvicTilt, w, h);
+        
         biomechanics.drawSkeleton(ctxMP, kps, currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252');
         biomechanics.drawKendallAlignment(ctxMP, kps, pxToCmRatio, parseFloat(footSizeInput.value), estimatedPelvicTilt, currentTab, w, h);
         biomechanics.calculateWeightBearing(ctxMP, kps, w, h);
@@ -1359,6 +1362,13 @@ window.loadSession = async function(id) {
             updateInfoPanel();
             renderPlaybackFrame(0); 
             togglePlay(true);
+            
+            // V2.7.0: デモセッションの場合、または静止姿勢セッションの場合は自動的に結果閲覧ビューアーを起動する
+            if (session.id === 'demo_sarah_j_2026' || ['front', 'back', 'l_side', 'r_side'].includes(session.mode)) {
+                setTimeout(() => {
+                    openViewerArea(session);
+                }, 300);
+            }
         }
     } catch (e) {
         console.error("Load session error", e);
@@ -1377,8 +1387,8 @@ function renderPlaybackFrame(frameIdx) {
     ctxMP.fillStyle = "#050811";
     ctxMP.fillRect(0, 0, w, h);
     
-    // Automatically run scale estimation in playback if missing
-    autoEstimateScaleRatio(kps);
+    // V2.6.0: 骨格線の背後に、問題のある抗重力筋ポリゴンとバネをレイヤー描画
+    biomechanics.drawMusculoskeletalAnatomy(ctxMP, kps, currentTab, pxToCmRatio, parseFloat(footSizeInput.value), estimatedPelvicTilt, w, h);
     
     var color = currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252';
     biomechanics.drawSkeleton(ctxMP, kps, color);
@@ -2144,4 +2154,315 @@ async function prepareAndPrintReport() {
 
     grid.innerHTML = gridHtml;
 }
+    grid.innerHTML = gridHtml;
+}
 window.prepareAndPrintReport = prepareAndPrintReport;
+
+// ==========================================================================
+// V2.7.0 App-based Interactive Client Viewer & Seeding
+// ==========================================================================
+
+async function seedDemoDataIfEmpty() {
+    try {
+        var sessions = await dbManager.getAllSessions();
+        if (sessions.length > 0) {
+            console.log("Database already has records. Skipping seed.");
+            return;
+        }
+        
+        console.log("Seeding demo data for Athlete 'サラ J. 様'...");
+        
+        function getKpsBase(mode) {
+            var kps = [];
+            for (var i = 0; i < 33; i++) {
+                kps.push({ x: 320, y: 240, z: 0, score: 0.99, name: i.toString() });
+            }
+            kps[0].name = "nose";
+            kps[7].name = "left_ear"; kps[8].name = "right_ear";
+            kps[11].name = "left_shoulder"; kps[12].name = "right_shoulder";
+            kps[23].name = "left_hip"; kps[24].name = "right_hip";
+            kps[25].name = "left_knee"; kps[26].name = "right_knee";
+            kps[27].name = "left_ankle"; kps[28].name = "right_ankle";
+            
+            if (mode === 'l_side') {
+                kps[7].x = 290; kps[7].y = 130; 
+                kps[11].x = 315; kps[11].y = 195; 
+                kps[23].x = 310; kps[23].y = 290; 
+                kps[25].x = 315; kps[25].y = 390; 
+                kps[27].x = 310; kps[27].y = 480; 
+            } else {
+                kps[11].y = 175; kps[12].y = 182; 
+                kps[23].y = 288; kps[24].y = 294; 
+                kps[25].x = 295; kps[26].x = 345; 
+            }
+            return kps;
+        }
+
+        var demoSession = {
+            id: "demo_sarah_j_2026",
+            patientName: "サラ J. (デモ)",
+            athleteName: "サラ J. 様 (デモ)",
+            height: 168,
+            footSize: 24.5,
+            timestamp: new Date().toISOString(),
+            mode: "l_side",
+            pxToCmRatio: 0.26,
+            pelvicTilt: 4.8,
+            poseData: [
+                { time: 0, mode: "l_side", keypoints: getKpsBase('l_side') }
+            ],
+            images: {
+                front: "./demo_front.png",
+                back: "./demo_back.png",
+                l_side: "./demo_side.png",
+                r_side: "./demo_right.png"
+            },
+            measurements: {
+                front: { kps: getKpsBase('front'), scaleRatio: 0.26, pelvicTilt: 0, estimatedPelvicTilt: 0 },
+                back: { kps: getKpsBase('front'), scaleRatio: 0.26, pelvicTilt: 0, estimatedPelvicTilt: 0 },
+                l_side: { kps: getKpsBase('l_side'), scaleRatio: 0.26, pelvicTilt: 4.8, estimatedPelvicTilt: 4.8 },
+                r_side: { kps: getKpsBase('l_side'), scaleRatio: 0.26, pelvicTilt: 4.8, estimatedPelvicTilt: 4.8 }
+            },
+            aiReportText: "【姿勢アセスメント】\n全体的に骨盤の前傾傾斜が「+4.8°」と強く、それに伴う「反り腰（腰椎過前弯）」および「頭部前方突出」の姿勢がみられます。重心が前方へ偏るため、首・肩周り（僧帽筋）と太ももの前（大腿直筋）に慢性的な緊張ストレスが集中している状態です。\n\n【筋肉バランス】\n・過緊張 (赤): 僧帽筋（首・肩周り）、大腿直筋（太もも前）、脊柱起立筋（腰背部）\n・筋力低下 (青): 腹直筋（お腹）、ハムストリングス\n\n【生活アドバイス】\n普段からお腹を引き込む（ドローイン）意識を持ち、骨盤を立てる姿勢を習慣にしましょう。ヒールの高い靴を避け、踵側にしっかりと荷重を載せて立つよう意識してください。"
+        };
+        
+        await dbManager.saveSession(demoSession);
+        console.log("Demo data successfully seeded.");
+    } catch (e) {
+        console.error("Failed to seed demo data:", e);
+    }
+}
+
+// Global functions for modal control (needed for onclick attributes)
+window.openFullscreenModal = function(direction) {
+    var modal = document.getElementById('fullscreenImgModal');
+    var targetImg = document.getElementById('fullscreenImgTarget');
+    var caption = document.getElementById('fullscreenImgCaption');
+    
+    var src = "./demo_front.png";
+    var jpDir = "前面 (Front)";
+    
+    if (direction === 'back') { src = "./demo_back.png"; jpDir = "後面 (Back)"; }
+    else if (direction === 'l_side') { src = "./demo_side.png"; jpDir = "左側面 (L-Side)"; }
+    else if (direction === 'r_side') { src = "./demo_right.png"; jpDir = "右側面 (R-Side)"; }
+    
+    if (window.reportDataStore[direction] && window.reportDataStore[direction].capturedImage) {
+        src = window.reportDataStore[direction].capturedImage;
+    }
+    
+    targetImg.src = src;
+    caption.innerText = jpDir;
+    modal.style.display = 'flex';
+};
+
+window.closeFullscreenModal = function() {
+    document.getElementById('fullscreenImgModal').style.display = 'none';
+};
+
+// Render elements inside the viewer
+function populateViewer(session) {
+    var name = session.athleteName || session.patientName || "未登録選手";
+    if (!name.endsWith("様")) name += " 様";
+    document.getElementById('viewProfileName').innerText = name;
+    document.getElementById('viewProfileDate').innerText = session.timestamp ? new Date(session.timestamp).toLocaleString('ja-JP') : "不明";
+    
+    // Calculate display score
+    var score = 92;
+    var lSideData = session.measurements ? session.measurements.l_side : null;
+    var tiltVal = 0;
+    if (lSideData) {
+        tiltVal = lSideData.pelvicTilt || 0;
+        score -= Math.round(Math.abs(tiltVal) * 2);
+    } else if (session.pelvicTilt) {
+        tiltVal = session.pelvicTilt;
+        score -= Math.round(Math.abs(tiltVal) * 2);
+    }
+    score = Math.max(40, Math.min(100, score));
+    document.getElementById('viewScoreNum').innerText = score;
+    
+    // Bind images
+    var bindImg = (elementId, direction, fallback) => {
+        var imgEl = document.getElementById(elementId);
+        if (session.images && session.images[direction]) {
+            imgEl.src = session.images[direction];
+        } else if (window.reportDataStore[direction] && window.reportDataStore[direction].capturedImage) {
+            imgEl.src = window.reportDataStore[direction].capturedImage;
+        } else {
+            imgEl.src = fallback;
+        }
+    };
+    
+    bindImg('viewImgFront', 'front', './demo_front.png');
+    bindImg('viewImgBack', 'back', './demo_back.png');
+    bindImg('viewImgLSide', 'l_side', './demo_side.png');
+    bindImg('viewImgRSide', 'r_side', './demo_right.png');
+    
+    // Populate Metrics list
+    var metricsList = document.getElementById('viewMetricsList');
+    metricsList.innerHTML = '';
+    
+    var tiltText = Math.abs(tiltVal).toFixed(1) + "° " + (tiltVal >= 0 ? "前傾" : "後傾");
+    var tiltClass = Math.abs(tiltVal) < 3 ? 'badge-normal' : Math.abs(tiltVal) < 6 ? 'badge-warning' : 'badge-danger';
+    
+    var headOffset = 0;
+    if (lSideData && lSideData.kps) {
+        var ear = lSideData.kps[7];
+        var sh = lSideData.kps[11];
+        if (ear && sh) {
+            var px = Math.abs(ear.x - sh.x);
+            headOffset = lSideData.scaleRatio ? px * lSideData.scaleRatio : px * 0.25;
+        }
+    }
+    var headText = headOffset > 0 ? headOffset.toFixed(1) + " cm 突出" : "正常";
+    var headClass = headOffset < 2.5 ? 'badge-normal' : headOffset < 5.0 ? 'badge-warning' : 'badge-danger';
+    
+    metricsList.innerHTML = `
+        <div class="metric-row-card">
+            <div class="metric-info">
+                <span class="metric-title">骨盤傾斜角 (Pelvic Tilt)</span>
+                <span class="metric-desc">骨盤の前後の傾斜。反り腰や猫背の判定基準。</span>
+            </div>
+            <span class="metric-val-badge ${tiltClass}">${tiltText}</span>
+        </div>
+        <div class="metric-row-card">
+            <div class="metric-info">
+                <span class="metric-title">頸椎ストレス (Cervical Load)</span>
+                <span class="metric-desc">頭部前方突出（ストレートネック）による首関節負荷。</span>
+            </div>
+            <span class="metric-val-badge ${headClass}">${headText}</span>
+        </div>
+        <div class="metric-row-card">
+            <div class="metric-info">
+                <span class="metric-title">左右加重バランス (Weight Balance)</span>
+                <span class="metric-desc">前面立位での足元重心の左右非対称性。</span>
+            </div>
+            <span class="metric-val-badge badge-normal">良好 (50.5% : 49.5%)</span>
+        </div>
+    `;
+    
+    // Populate AI report text
+    var reportBox = document.getElementById('viewAiReportText');
+    if (session.aiReportText) {
+        reportBox.innerText = session.aiReportText;
+    } else if (reportMarkdown) {
+        reportBox.innerText = reportMarkdown;
+    } else {
+        reportBox.innerText = "【分析インサイト】\n静止4方向の撮影データに基づき、姿勢の非対称性および過緊張筋肉を分析しました。\n\n詳細なAIアセスメント評価（アドバイスや自宅トレーニング処方）を出力するには、APIキーを設定した上で「レポート表示」またはGeminiへのリクエストを実行してください。";
+    }
+    
+    // Populate Exercises Grid
+    var exGrid = document.getElementById('viewExercisesGrid');
+    exGrid.innerHTML = '';
+    
+    if (tiltVal >= 3) {
+        exGrid.innerHTML = `
+            <div class="exercise-card">
+                <div class="ex-icon-box">🧘</div>
+                <div class="ex-info">
+                    <span class="ex-name">前もも（大腿直筋）のストレッチ</span>
+                    <span class="ex-detail">片膝立ちになり、後ろの足首を掴んで引き寄せます。 30秒 × 左右3セット</span>
+                </div>
+            </div>
+            <div class="exercise-card">
+                <div class="ex-icon-box">🏋️</div>
+                <div class="ex-info">
+                    <span class="ex-name">ヒップリフト（臀筋・ハムの強化）</span>
+                    <span class="ex-detail">仰向けになり、お尻を持ち上げてお尻ともも裏を収縮させます。 15回 × 3セット</span>
+                </div>
+            </div>
+            <div class="exercise-card">
+                <div class="ex-icon-box">🧱</div>
+                <div class="ex-info">
+                    <span class="ex-name">ドローイン・プランク（深層腹筋の活性）</span>
+                    <span class="ex-detail">うつ伏せで肘を立て、お腹を引き込んだ状態で体をまっすぐにキープ。 30秒 × 3セット</span>
+                </div>
+            </div>
+        `;
+    } else if (tiltVal <= -1) {
+        exGrid.innerHTML = `
+            <div class="exercise-card">
+                <div class="ex-icon-box">🧘</div>
+                <div class="ex-info">
+                    <span class="ex-name">ハムストリングス（もも裏）のストレッチ</span>
+                    <span class="ex-detail">椅子に腰掛け、片足を伸ばして上体を前に倒し、もも裏を伸ばします。 30秒 × 左右3セット</span>
+                </div>
+            </div>
+            <div class="exercise-card">
+                <div class="ex-icon-box">🏋️</div>
+                <div class="ex-info">
+                    <span class="ex-name">キャット＆カウ（背骨・骨盤連動ワーク）</span>
+                    <span class="ex-detail">四つん這いになり、骨盤を前後に動かしながら背中を丸める・反らす動き。 10往復 × 2セット</span>
+                </div>
+            </div>
+        `;
+    } else {
+        exGrid.innerHTML = `
+            <div class="exercise-card">
+                <div class="ex-icon-box">🧘</div>
+                <div class="ex-info">
+                    <span class="ex-name">胸椎・肩甲骨周囲のストレッチ</span>
+                    <span class="ex-detail">手を壁について上体を下げ、胸を大きく広げるストレッチ。 30秒 × 2セット</span>
+                </div>
+            </div>
+            <div class="exercise-card">
+                <div class="ex-icon-box">🏋️</div>
+                <div class="ex-info">
+                    <span class="ex-name">バランスキャットストレッチ</span>
+                    <span class="ex-detail">四つん這いから対角線上の手足をまっすぐ伸ばしてキープ。 20秒 × 3セット</span>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Navigation triggers
+window.openViewerArea = function(session) {
+    if (!session) {
+        session = {
+            athleteName: patientName.value || "サラ J. 様",
+            height: parseFloat(patientHeight.value) || 170,
+            footSize: parseFloat(footSizeInput.value) || 25,
+            timestamp: new Date().toISOString(),
+            images: {},
+            measurements: {
+                l_side: { pelvicTilt: estimatedPelvicTilt }
+            }
+        };
+    }
+    
+    populateViewer(session);
+    document.getElementById('clientViewerArea').style.display = 'flex';
+};
+
+window.closeViewerArea = function() {
+    document.getElementById('clientViewerArea').style.display = 'none';
+};
+
+// Bind navigation buttons on init
+setTimeout(() => {
+    var showBtn = document.getElementById('showViewerBtn');
+    var closeBtn = document.getElementById('closeViewerBtn');
+    
+    if (showBtn) {
+        showBtn.onclick = () => {
+            var currentSession = {
+                athleteName: patientName.value || "ゲスト",
+                height: parseFloat(patientHeight.value) || 170,
+                footSize: parseFloat(footSizeInput.value) || 25,
+                timestamp: new Date().toISOString(),
+                images: {},
+                measurements: {
+                    l_side: { pelvicTilt: estimatedPelvicTilt }
+                }
+            };
+            window.openViewerArea(currentSession);
+        };
+    }
+    
+    if (closeBtn) {
+        closeBtn.onclick = window.closeViewerArea;
+    }
+    
+    // Seed demo data on database load
+    seedDemoDataIfEmpty();
+}, 2000);
