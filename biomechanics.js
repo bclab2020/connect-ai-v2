@@ -645,38 +645,6 @@ var biomechanics = {
         ctxRadar.restore();
     },
 
-    /**
-     * Draws a futuristic double HUD ring around joint nodes to represent moments.
-     * V2.6.0
-     */
-    drawMomentRing: function(ctx, cx, cy, r, color = 'rgba(255, 82, 82, 0.65)', thickness = 1.5) {
-        ctx.save();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = thickness;
-        
-        // 1. Inner solid circle
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-        ctx.stroke();
-        
-        // 2. Outer dashed ticks circle
-        ctx.lineWidth = 1;
-        ctx.setLineDash([2, 4]);
-        ctx.beginPath();
-        ctx.arc(cx, cy, r + 4, 0, 2 * Math.PI);
-        ctx.stroke();
-        
-        // 3. Side brackets
-        ctx.setLineDash([]);
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r + 8, -Math.PI / 4, Math.PI / 4);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(cx, cy, r + 8, Math.PI * 3 / 4, Math.PI * 5 / 4);
-        ctx.stroke();
-        
-        ctx.restore();
     },
 
     /**
@@ -801,10 +769,6 @@ var biomechanics = {
                 if (cmKnee > 2.0) {
                     this.drawMuscleSegment(ctx, hip, knee, 20, 'tight', '大腿四頭筋');
                     this.drawMuscleSegment(ctx, knee, ank, 16, 'tight', '腓腹筋');
-                    
-                    // Draw HUD moment ring around side knee
-                    var ringColor = cmKnee > 4.0 ? 'rgba(255, 82, 82, 0.7)' : 'rgba(0, 191, 255, 0.6)';
-                    this.drawMomentRing(ctx, knee.x, knee.y, 24, ringColor, 1.5);
                 }
             }
         }
@@ -840,18 +804,14 @@ var biomechanics = {
                 
                 if (lKneeState === 'tight') {
                     this.drawMuscleSegment(ctx, lHip, lKnee, 20, 'tight', '内転筋群 (左)');
-                    this.drawMomentRing(ctx, lKnee.x, lKnee.y, 24, 'rgba(255, 82, 82, 0.7)', 1.5);
                 } else if (lKneeState === 'weak') {
                     this.drawMuscleSegment(ctx, lHip, lKnee, 18, 'weak', '中臀筋 (左)');
-                    this.drawMomentRing(ctx, lKnee.x, lKnee.y, 24, 'rgba(0, 191, 255, 0.6)', 1.5);
                 }
                 
                 if (rKneeState === 'tight') {
                     this.drawMuscleSegment(ctx, rHip, rKnee, 20, 'tight', '内転筋群 (右)');
-                    this.drawMomentRing(ctx, rKnee.x, rKnee.y, 24, 'rgba(255, 82, 82, 0.7)', 1.5);
                 } else if (rKneeState === 'weak') {
                     this.drawMuscleSegment(ctx, rHip, rKnee, 18, 'weak', '中臀筋 (右)');
-                    this.drawMomentRing(ctx, rKnee.x, rKnee.y, 24, 'rgba(0, 191, 255, 0.6)', 1.5);
                 }
                 
                 var dyHip = lHip.y - rHip.y;
