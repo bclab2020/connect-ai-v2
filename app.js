@@ -1310,9 +1310,14 @@ window.loadSession = async function(id) {
             if (session.images) {
                 Object.keys(session.images).forEach(mode => {
                     if (!window.reportDataStore[mode]) {
-                        window.reportDataStore[mode] = [];
+                        window.reportDataStore[mode] = {};
                     }
-                    window.reportDataStore[mode].capturedImage = session.images[mode];
+                    // デモセッション時は、撮影キャッシュ(capturedImage)に上書きさせないようにする
+                    if (id === 'demo_connect_town_2026') {
+                        window.reportDataStore[mode].capturedImage = null;
+                    } else {
+                        window.reportDataStore[mode].capturedImage = session.images[mode];
+                    }
                 });
             } else {
                 ['front', 'back', 'l_side', 'r_side'].forEach(mode => {
