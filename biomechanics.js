@@ -645,8 +645,6 @@ var biomechanics = {
         ctxRadar.restore();
     },
 
-    },
-
     /**
      * Draws a semi-transparent HSL color-coded muscle polygon (fusiform) and leader label.
      * V2.6.0
