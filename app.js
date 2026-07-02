@@ -2424,8 +2424,8 @@ function populateViewer(session) {
 window.openViewerArea = function(session) {
     if (!session) {
         session = {
-            athleteName: patientName.value || "サラ J. 様",
-            height: parseFloat(patientHeight.value) || 170,
+            athleteName: patientNameInput.value || "サラ J. 様",
+            height: parseFloat(heightInput.value) || 170,
             footSize: parseFloat(footSizeInput.value) || 25,
             timestamp: new Date().toISOString(),
             images: {},
@@ -2451,8 +2451,8 @@ setTimeout(() => {
     if (showBtn) {
         showBtn.onclick = () => {
             var currentSession = {
-                athleteName: patientName.value || "ゲスト",
-                height: parseFloat(patientHeight.value) || 170,
+                athleteName: patientNameInput.value || "ゲスト",
+                height: parseFloat(heightInput.value) || 170,
                 footSize: parseFloat(footSizeInput.value) || 25,
                 timestamp: new Date().toISOString(),
                 images: {},
