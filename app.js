@@ -2159,9 +2159,9 @@ async function prepareAndPrintReport() {
 
     grid.innerHTML = gridHtml;
 }
-    grid.innerHTML = gridHtml;
-}
 window.prepareAndPrintReport = prepareAndPrintReport;
+
+
 
 // ==========================================================================
 // V2.7.0 App-based Interactive Client Viewer & Seeding
