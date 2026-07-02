@@ -1462,80 +1462,85 @@ function playLoop(startFrame) {
     
     slider.value = currentFrame;
     renderPlaybackFrame(currentFrame);
-    
     playbackRafId = requestAnimationFrame(() => playLoop(currentFrame));
 }
 
 // Camera/Live view setup loops
 async function init() {
-    // Session state lock restorations
     if (sessionStorage.getItem('isSpecialist') === 'true') {
         isSpecialist = true;
     }
     updateAuthUI();
 
+    // 1. Initialize DB and seed demo data FIRST (fully non-blocking)
     try {
         await dbManager.init();
+        if (typeof seedDemoDataIfEmpty === 'function') {
+            await seedDemoDataIfEmpty();
+        }
+        if (typeof window.refreshHistoryList === 'function') {
+            window.refreshHistoryList();
+        }
     } catch (e) {
         console.error("Database initialization failed:", e);
     }
 
     makeRadarDraggable();
-    biomechanics.clearRadar(ctxRadarMP, '#ff5252');
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) { 
-        videoSource.innerHTML = '<option value="">⚠️ HTTPS必須 (デプロイ環境)</option>'; 
-        startBtn.innerText = "❌ 起動不可"; 
-        return; 
+    if (typeof biomechanics !== 'undefined' && biomechanics.clearRadar) {
+        biomechanics.clearRadar(ctxRadarMP, '#ff5252');
     }
 
-    try {
-        var tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        tempStream.getTracks().forEach(t => t.stop());
-    } catch (e) {}
+    // 2. Discover cameras without getUserMedia on boot to avoid iOS Safari prompt freeze
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        try {
+            var devices = await navigator.mediaDevices.enumerateDevices();
+            videoSource.innerHTML = '';
+            var camCount = 1, hasCam = false;
+            devices.forEach(function(d) {
+                if (d.kind === 'videoinput') {
+                    videoSource.appendChild(new Option(d.label || "カメラ " + camCount++, d.deviceId));
+                    hasCam = true;
+                }
+            });
+            if (!hasCam) videoSource.innerHTML = '<option value="">カメラなし</option>';
+        } catch (e) {
+            console.warn("Could not enumerate devices directly on load:", e);
+            videoSource.innerHTML = '<option value="">カメラ検出スキップ</option>';
+        }
+    } else {
+        videoSource.innerHTML = '<option value="">⚠️ HTTPS必須 (デプロイ環境)</option>';
+    }
 
+    // 3. Load TensorFlow / BlazePose asynchronously
     try {
-        var devices = await navigator.mediaDevices.enumerateDevices(); 
-        videoSource.innerHTML = ''; 
-        var camCount = 1, hasCam = false;
-        devices.forEach(function(d) { 
-            if (d.kind === 'videoinput') { 
-                videoSource.appendChild(new Option(d.label || "カメラ " + camCount++, d.deviceId)); 
-                hasCam = true; 
-            } 
-        });
-        if (!hasCam) videoSource.innerHTML = '<option value="">カメラなし</option>';
-        
-        startBtn.innerText = "⏳ AIモデル読込中..."; 
+        startBtn.innerText = "⏳ AIモデル読込中...";
         startBtn.disabled = true;
-        
-        await tf.setBackend('webgl'); 
+
+        await tf.setBackend('webgl');
         await tf.ready();
-        
-        detectors[0] = await poseDetection.createDetector(poseDetection.SupportedModels.BlazePose, { 
-            runtime: 'mediapipe', 
-            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/pose', 
-            modelType: 'full' 
+
+        detectors[0] = await poseDetection.createDetector(poseDetection.SupportedModels.BlazePose, {
+            runtime: 'mediapipe',
+            solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/pose',
+            modelType: 'full'
         });
-        
-        startBtn.innerText = "📷 フルHD起動"; 
-        startBtn.disabled = false; 
+
+        startBtn.innerText = "📷 フルHD起動";
+        startBtn.disabled = false;
         updateInfoPanel();
-        updateCameraModeBadge(); // V2.5.1
-        filterModeDropdown(); // V2.5.4
-        syncTabButtonsForMode(currentTab); // V2.5.4
-        updateModeUI(currentTab); // V2.5.9.1: 起動時に最初のモードUIと秒数を強制同期
+        updateCameraModeBadge(); 
+        filterModeDropdown(); 
+        syncTabButtonsForMode(currentTab); 
+        updateModeUI(currentTab); 
         
-        // iOS Gyro permission button binding
-        document.getElementById('submitGyroPermissionBtn').onclick = requestDeviceOrientationPermission;
-    } catch (e) { 
-        startBtn.innerText = "❌ 起動エラー"; 
+        var gyroBtn = document.getElementById('submitGyroPermissionBtn');
+        if (gyroBtn) gyroBtn.onclick = requestDeviceOrientationPermission;
+    } catch (e) {
+        startBtn.innerText = "❌ 起動エラー";
         console.error("AI Initialization Error:", e);
-        alert("AIエンジンの初期化に失敗しました。詳細: " + e.message);
     }
 }
 window.addEventListener('load', init);
-
 // Camera Start Handler
 startBtn.onclick = async function() {
     renderSessionId++;
