@@ -1372,7 +1372,7 @@ window.loadSession = async function(id) {
         }
     } catch (e) {
         console.error("Load session error", e);
-        alert("データの読み込みに失敗しました。");
+        alert("データの読み込みに失敗しました。\nエラー詳細: " + e.message + "\n" + e.stack);
     }
 };
 

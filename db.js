@@ -76,7 +76,11 @@ var dbManager = {
             request.onsuccess = function(event) {
                 var results = event.target.result || [];
                 // Sort by timestamp descending
-                results.sort((a, b) => b.timestamp - a.timestamp);
+                results.sort((a, b) => {
+                    var tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                    var tB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                    return tB - tA;
+                });
                 resolve(results);
             };
 
