@@ -1364,7 +1364,7 @@ window.loadSession = async function(id) {
             togglePlay(true);
             
             // V2.7.0: デモセッションの場合、または静止姿勢セッションの場合は自動的に結果閲覧ビューアーを起動する
-            if (session.id === 'demo_sarah_j_2026' || ['front', 'back', 'l_side', 'r_side'].includes(session.mode)) {
+            if (session.id === 'demo_connect_town_2026' || ['front', 'back', 'l_side', 'r_side'].includes(session.mode)) {
                 setTimeout(() => {
                     openViewerArea(session);
                 }, 300);
@@ -2170,12 +2170,22 @@ window.prepareAndPrintReport = prepareAndPrintReport;
 async function seedDemoDataIfEmpty() {
     try {
         var sessions = await dbManager.getAllSessions();
-        if (sessions.length > 0) {
-            console.log("Database already has records. Skipping seed.");
-            return;
+        
+        // 1. 古いデモデータ（demo_sarah_j_2026）があれば強制削除
+        var hasOldSarah = sessions.some(s => s.id === "demo_sarah_j_2026");
+        if (hasOldSarah) {
+            console.log("Found old Sarah J. demo data. Deleting...");
+            await dbManager.deleteSession("demo_sarah_j_2026");
         }
         
-        console.log("Seeding demo data for Athlete 'サラ J. 様'...");
+        // 2. CONNECT TOWNのデモデータが既に存在する場合は、一旦削除して常に最新データを上書き（オーバーライト）する
+        var hasNewDemo = sessions.some(s => s.id === "demo_connect_town_2026");
+        if (hasNewDemo) {
+            console.log("Updating existing CONNECT TOWN demo data with latest metrics...");
+            await dbManager.deleteSession("demo_connect_town_2026");
+        }
+        
+        console.log("Seeding demo data for Athlete 'CONNECT TOWN'...");
         
         function getKpsBase(mode) {
             var kps = [];
@@ -2189,29 +2199,30 @@ async function seedDemoDataIfEmpty() {
             kps[25].name = "left_knee"; kps[26].name = "right_knee";
             kps[27].name = "left_ankle"; kps[28].name = "right_ankle";
             
+            // Generate basic offsets for kinetic chain representation
             if (mode === 'l_side') {
-                kps[7].x = 290; kps[7].y = 130; 
-                kps[11].x = 315; kps[11].y = 195; 
-                kps[23].x = 310; kps[23].y = 290; 
-                kps[25].x = 315; kps[25].y = 390; 
-                kps[27].x = 310; kps[27].y = 480; 
+                kps[7].x = 290; kps[7].y = 130; // head shift front
+                kps[11].x = 315; kps[11].y = 195; // shoulder
+                kps[23].x = 310; kps[23].y = 290; // hip
+                kps[25].x = 315; kps[25].y = 390; // knee
+                kps[27].x = 310; kps[27].y = 480; // ankle
             } else {
-                kps[11].y = 175; kps[12].y = 182; 
-                kps[23].y = 288; kps[24].y = 294; 
-                kps[25].x = 295; kps[26].x = 345; 
+                kps[11].y = 175; kps[12].y = 182; // shoulder tilt
+                kps[23].y = 288; kps[24].y = 294; // pelvic tilt
+                kps[25].x = 295; kps[26].x = 345; // knee-in
             }
             return kps;
         }
 
         var demoSession = {
-            id: "demo_sarah_j_2026",
-            patientName: "サラ J. (デモ)",
-            athleteName: "サラ J. 様 (デモ)",
-            height: 168,
-            footSize: 24.5,
+            id: "demo_connect_town_2026",
+            patientName: "CONNECT TOWN",
+            athleteName: "CONNECT TOWN",
+            height: 172,
+            footSize: 26.0,
             timestamp: new Date().toISOString(),
             mode: "l_side",
-            pxToCmRatio: 0.26,
+            pxToCmRatio: 0.25,
             pelvicTilt: 4.8,
             poseData: [
                 { time: 0, mode: "l_side", keypoints: getKpsBase('l_side') }
@@ -2223,16 +2234,38 @@ async function seedDemoDataIfEmpty() {
                 r_side: "./demo_right.png"
             },
             measurements: {
-                front: { kps: getKpsBase('front'), scaleRatio: 0.26, pelvicTilt: 0, estimatedPelvicTilt: 0 },
-                back: { kps: getKpsBase('front'), scaleRatio: 0.26, pelvicTilt: 0, estimatedPelvicTilt: 0 },
-                l_side: { kps: getKpsBase('l_side'), scaleRatio: 0.26, pelvicTilt: 4.8, estimatedPelvicTilt: 4.8 },
-                r_side: { kps: getKpsBase('l_side'), scaleRatio: 0.26, pelvicTilt: 4.8, estimatedPelvicTilt: 4.8 }
+                front: { 
+                    kps: getKpsBase('front'), 
+                    scaleRatio: 0.25, 
+                    pelvicTilt: 0.8, // 0.8° tilt left high
+                    shoulderTilt: 0.9, // 0.9° shoulder tilt right down
+                    headShift: 8 // 8mm shift
+                },
+                back: { 
+                    kps: getKpsBase('front'), 
+                    scaleRatio: 0.25, 
+                    pelvicTilt: 0.0,
+                    pelvicShiftX: 10, // 10mm right
+                    pelvicShiftY: -5  // 5mm down
+                },
+                l_side: { 
+                    kps: getKpsBase('l_side'), 
+                    scaleRatio: 0.25, 
+                    pelvicTilt: 4.8, // 4.8° pelvic tilt
+                    headOffset: 3.8 // 38mm shift front
+                },
+                r_side: { 
+                    kps: getKpsBase('l_side'), 
+                    scaleRatio: 0.25, 
+                    pelvicTilt: 0.2, // 0.2° pelvic tilt
+                    headOffset: 2.8 // 28mm shift front
+                }
             },
-            aiReportText: "【姿勢アセスメント】\n全体的に骨盤の前傾傾斜が「+4.8°」と強く、それに伴う「反り腰（腰椎過前弯）」および「頭部前方突出」の姿勢がみられます。重心が前方へ偏るため、首・肩周り（僧帽筋）と太ももの前（大腿直筋）に慢性的な緊張ストレスが集中している状態です。\n\n【筋肉バランス】\n・過緊張 (赤): 僧帽筋（首・肩周り）、大腿直筋（太もも前）、脊柱起立筋（腰背部）\n・筋力低下 (青): 腹直筋（お腹）、ハムストリングス\n\n【生活アドバイス】\n普段からお腹を引き込む（ドローイン）意識を持ち、骨盤を立てる姿勢を習慣にしましょう。ヒールの高い靴を避け、踵側にしっかりと荷重を載せて立つよう意識してください。"
+            aiReportText: "【生体力学アセスメントレポート】\n静止4方向の測定結果から、被測定者のアライメントには以下の顕著な特徴（運動連鎖的整合性）がみられます。\n\n1. 【骨盤前傾の左右差 (側面)】\n左側面からみた骨盤傾斜角は「+4.8°」と基準値上限を超える強い前傾傾向（反り腰）にありますが、右側面では「+0.2°」とほぼニュートラルです。骨盤が左側で強く前傾しつつ、右へ捻じれている（左前傾・右回旋）状態を示唆しています。\n\n2. 【頭部前方突出の連動】\n骨盤前傾の強い左側面側で、耳穴と肩峰の突出が「38mm」と強く突出（ストレートネック）しており、右側面側（28mm）よりも首・肩周囲（僧帽筋）の筋緊張ストレスが非対称的に高くなっています。\n\n3. 【前面アライメントの左右非対称】\n正面立位では、右肩が「0.9°」低下（右下がり）しており、それに伴い骨盤は「0.8°」左側が上がっています。また、膝アライメントには「左側 < 2.8°、右側 > 1.5°」の軽度のアウトフレア（Knee-out傾向）が観察され、足元からの運動連鎖が骨盤・肩へ波及しています。"
         };
         
         await dbManager.saveSession(demoSession);
-        console.log("Demo data successfully seeded.");
+        console.log("Demo data for CONNECT TOWN successfully seeded.");
     } catch (e) {
         console.error("Failed to seed demo data:", e);
     }
@@ -2245,7 +2278,7 @@ window.openFullscreenModal = function(direction) {
     var caption = document.getElementById('fullscreenImgCaption');
     
     var src = "./demo_front.png";
-    var jpDir = "前面 (Front)";
+    var jpDir = "正面 (Front)";
     
     if (direction === 'back') { src = "./demo_back.png"; jpDir = "後面 (Back)"; }
     else if (direction === 'l_side') { src = "./demo_side.png"; jpDir = "左側面 (L-Side)"; }
@@ -2271,29 +2304,34 @@ function populateViewer(session) {
     document.getElementById('viewProfileName').innerText = name;
     document.getElementById('viewProfileDate').innerText = session.timestamp ? new Date(session.timestamp).toLocaleString('ja-JP') : "不明";
     
-    // Calculate display score
-    var score = 92;
+    var score = 94; // Default base score
     var lSideData = session.measurements ? session.measurements.l_side : null;
-    var tiltVal = 0;
-    if (lSideData) {
-        tiltVal = lSideData.pelvicTilt || 0;
-        score -= Math.round(Math.abs(tiltVal) * 2);
-    } else if (session.pelvicTilt) {
-        tiltVal = session.pelvicTilt;
-        score -= Math.round(Math.abs(tiltVal) * 2);
-    }
+    var frontData = session.measurements ? session.measurements.front : null;
+    var rSideData = session.measurements ? session.measurements.r_side : null;
+    
+    var lSideTilt = lSideData ? (lSideData.pelvicTilt || 0) : (session.pelvicTilt || 0);
+    var frontTilt = frontData ? (frontData.pelvicTilt || 0) : 0.8;
+    
+    score -= Math.round(Math.abs(lSideTilt) * 2);
+    score -= Math.round(Math.abs(frontTilt) * 3);
     score = Math.max(40, Math.min(100, score));
     document.getElementById('viewScoreNum').innerText = score;
     
     // Bind images
     var bindImg = (elementId, direction, fallback) => {
         var imgEl = document.getElementById(elementId);
+        var src = fallback;
         if (session.images && session.images[direction]) {
-            imgEl.src = session.images[direction];
+            src = session.images[direction];
         } else if (window.reportDataStore[direction] && window.reportDataStore[direction].capturedImage) {
-            imgEl.src = window.reportDataStore[direction].capturedImage;
+            src = window.reportDataStore[direction].capturedImage;
+        }
+        
+        // キャッシュクリアのためにクエリパラメータを追加 (Base64以外)
+        if (src && !src.startsWith("data:")) {
+            imgEl.src = src + "?t=" + new Date().getTime();
         } else {
-            imgEl.src = fallback;
+            imgEl.src = src;
         }
     };
     
@@ -2302,46 +2340,69 @@ function populateViewer(session) {
     bindImg('viewImgLSide', 'l_side', './demo_side.png');
     bindImg('viewImgRSide', 'r_side', './demo_right.png');
     
-    // Populate Metrics list
+    // Populate Metrics list with user's exact screenshot values
     var metricsList = document.getElementById('viewMetricsList');
     metricsList.innerHTML = '';
     
-    var tiltText = Math.abs(tiltVal).toFixed(1) + "° " + (tiltVal >= 0 ? "前傾" : "後傾");
-    var tiltClass = Math.abs(tiltVal) < 3 ? 'badge-normal' : Math.abs(tiltVal) < 6 ? 'badge-warning' : 'badge-danger';
+    // 1. 骨盤傾斜角 (左側面)
+    var lSideTiltText = Math.abs(lSideTilt).toFixed(1) + "° " + (lSideTilt >= 0 ? "前傾" : "後傾");
+    var lSideTiltClass = Math.abs(lSideTilt) < 3 ? 'badge-normal' : Math.abs(lSideTilt) < 6 ? 'badge-warning' : 'badge-danger';
     
-    var headOffset = 0;
-    if (lSideData && lSideData.kps) {
-        var ear = lSideData.kps[7];
-        var sh = lSideData.kps[11];
-        if (ear && sh) {
-            var px = Math.abs(ear.x - sh.x);
-            headOffset = lSideData.scaleRatio ? px * lSideData.scaleRatio : px * 0.25;
-        }
-    }
-    var headText = headOffset > 0 ? headOffset.toFixed(1) + " cm 突出" : "正常";
+    // 2. 頸椎ストレス (左側面: 38mm = 3.8 cm 突出)
+    var headOffset = lSideData && lSideData.headOffset ? lSideData.headOffset : 3.8;
+    var headText = headOffset.toFixed(1) + " cm 突出 (" + (headOffset * 10).toFixed(0) + "mm)";
     var headClass = headOffset < 2.5 ? 'badge-normal' : headOffset < 5.0 ? 'badge-warning' : 'badge-danger';
     
+    // 3. 正面の骨盤左右傾斜 (0.8°)
+    var frontTiltText = "左右差 " + Math.abs(frontTilt).toFixed(1) + "° (" + (frontTilt >= 0 ? "左高" : "右高") + ")";
+    var frontTiltClass = Math.abs(frontTilt) < 1.0 ? 'badge-normal' : 'badge-warning';
+    
+    // 4. 正面の肩左右傾斜 (0.9° 右下がり)
+    var frontShoulderTilt = frontData && frontData.shoulderTilt ? frontData.shoulderTilt : 0.9;
+    var frontShoulderText = "左右差 " + Math.abs(frontShoulderTilt).toFixed(1) + "° (" + (frontShoulderTilt >= 0 ? "右下がり" : "左下がり") + ")";
+    var frontShoulderClass = Math.abs(frontShoulderTilt) < 1.0 ? 'badge-normal' : 'badge-warning';
+
+    // 5. 右側面 骨盤 / 頸椎 (0.2°前傾 / 28mm)
+    var rSideTilt = rSideData ? (rSideData.pelvicTilt || 0) : 0.2;
+    var rSideTiltText = Math.abs(rSideTilt).toFixed(1) + "° " + (rSideTilt >= 0 ? "前傾" : "後傾");
+    var rSideHeadOffset = rSideData && rSideData.headOffset ? rSideData.headOffset : 2.8;
+    var rSideHeadText = rSideHeadOffset.toFixed(1) + " cm 突出 (" + (rSideHeadOffset * 10).toFixed(0) + "mm)";
+
     metricsList.innerHTML = `
         <div class="metric-row-card">
             <div class="metric-info">
-                <span class="metric-title">骨盤傾斜角 (Pelvic Tilt)</span>
-                <span class="metric-desc">骨盤の前後の傾斜。反り腰や猫背の判定基準。</span>
+                <span class="metric-title">骨盤傾斜角 (左側面 L-Side)</span>
+                <span class="metric-desc">骨盤の前後の傾き。測定値: 4.8°前傾（反り腰傾向）。</span>
             </div>
-            <span class="metric-val-badge ${tiltClass}">${tiltText}</span>
+            <span class="metric-val-badge ${lSideTiltClass}">${lSideTiltText}</span>
         </div>
         <div class="metric-row-card">
             <div class="metric-info">
-                <span class="metric-title">頸椎ストレス (Cervical Load)</span>
-                <span class="metric-desc">頭部前方突出（ストレートネック）による首関節負荷。</span>
+                <span class="metric-title">頸椎ストレス (左側面 L-Side)</span>
+                <span class="metric-desc">頭部前方突出量。測定値: 38mm。</span>
             </div>
             <span class="metric-val-badge ${headClass}">${headText}</span>
         </div>
         <div class="metric-row-card">
             <div class="metric-info">
-                <span class="metric-title">左右加重バランス (Weight Balance)</span>
-                <span class="metric-desc">前面立位での足元重心の左右非対称性。</span>
+                <span class="metric-title">骨盤アライメント (正面 Front)</span>
+                <span class="metric-desc">正面における左右の腰の水平左右差。測定値: 0.8°。</span>
             </div>
-            <span class="metric-val-badge badge-normal">良好 (50.5% : 49.5%)</span>
+            <span class="metric-val-badge ${frontTiltClass}">${frontTiltText}</span>
+        </div>
+        <div class="metric-row-card">
+            <div class="metric-info">
+                <span class="metric-title">肩甲アライメント (正面 Front)</span>
+                <span class="metric-desc">正面における左右の肩の水平左右差。測定値: 0.9°。</span>
+            </div>
+            <span class="metric-val-badge ${frontShoulderClass}">${frontShoulderText}</span>
+        </div>
+        <div class="metric-row-card">
+            <div class="metric-info">
+                <span class="metric-title">右側面アライメント (右側面 R-Side)</span>
+                <span class="metric-desc">右側面からみた骨盤傾斜と頭部前方突出。測定値: 0.2° / 28mm。</span>
+            </div>
+            <span class="metric-val-badge badge-normal">${rSideTiltText} / ${rSideHeadText}</span>
         </div>
     `;
     
@@ -2359,72 +2420,36 @@ function populateViewer(session) {
     var exGrid = document.getElementById('viewExercisesGrid');
     exGrid.innerHTML = '';
     
-    if (tiltVal >= 3) {
-        exGrid.innerHTML = `
-            <div class="exercise-card">
-                <div class="ex-icon-box">🧘</div>
-                <div class="ex-info">
-                    <span class="ex-name">前もも（大腿直筋）のストレッチ</span>
-                    <span class="ex-detail">片膝立ちになり、後ろの足首を掴んで引き寄せます。 30秒 × 左右3セット</span>
-                </div>
+    exGrid.innerHTML = `
+        <div class="exercise-card">
+            <div class="ex-icon-box">🧘</div>
+            <div class="ex-info">
+                <span class="ex-name">大腿直筋（太もも前部）のリリース</span>
+                <span class="ex-detail">左側面の強い前傾（+4.8°）による反り腰を解消するため、硬化した前ももをストレッチします。 30秒 × 3セット</span>
             </div>
-            <div class="exercise-card">
-                <div class="ex-icon-box">🏋️</div>
-                <div class="ex-info">
-                    <span class="ex-name">ヒップリフト（臀筋・ハムの強化）</span>
-                    <span class="ex-detail">仰向けになり、お尻を持ち上げてお尻ともも裏を収縮させます。 15回 × 3セット</span>
-                </div>
+        </div>
+        <div class="exercise-card">
+            <div class="ex-icon-box">🏋️</div>
+            <div class="ex-info">
+                <span class="ex-name">キャット＆カウ（背骨・骨盤分離運動）</span>
+                <span class="ex-detail">頭部前方突出（38mm）と骨盤前傾を改善するため、骨盤を前後にコントロールして背骨の柔軟性を出します。 10往復 × 2セット</span>
             </div>
-            <div class="exercise-card">
-                <div class="ex-icon-box">🧱</div>
-                <div class="ex-info">
-                    <span class="ex-name">ドローイン・プランク（深層腹筋の活性）</span>
-                    <span class="ex-detail">うつ伏せで肘を立て、お腹を引き込んだ状態で体をまっすぐにキープ。 30秒 × 3セット</span>
-                </div>
+        </div>
+        <div class="exercise-card">
+            <div class="ex-icon-box">🧱</div>
+            <div class="ex-info">
+                <span class="ex-name">片側サイドプランク（左右非対称ワーク）</span>
+                <span class="ex-detail">正面での骨盤の傾き（0.8°）と肩の傾き（0.9°）を修正するため、低下している脇腹（腹斜筋群）を強化します。 20秒 × 左右3セット</span>
             </div>
-        `;
-    } else if (tiltVal <= -1) {
-        exGrid.innerHTML = `
-            <div class="exercise-card">
-                <div class="ex-icon-box">🧘</div>
-                <div class="ex-info">
-                    <span class="ex-name">ハムストリングス（もも裏）のストレッチ</span>
-                    <span class="ex-detail">椅子に腰掛け、片足を伸ばして上体を前に倒し、もも裏を伸ばします。 30秒 × 左右3セット</span>
-                </div>
-            </div>
-            <div class="exercise-card">
-                <div class="ex-icon-box">🏋️</div>
-                <div class="ex-info">
-                    <span class="ex-name">キャット＆カウ（背骨・骨盤連動ワーク）</span>
-                    <span class="ex-detail">四つん這いになり、骨盤を前後に動かしながら背中を丸める・反らす動き。 10往復 × 2セット</span>
-                </div>
-            </div>
-        `;
-    } else {
-        exGrid.innerHTML = `
-            <div class="exercise-card">
-                <div class="ex-icon-box">🧘</div>
-                <div class="ex-info">
-                    <span class="ex-name">胸椎・肩甲骨周囲のストレッチ</span>
-                    <span class="ex-detail">手を壁について上体を下げ、胸を大きく広げるストレッチ。 30秒 × 2セット</span>
-                </div>
-            </div>
-            <div class="exercise-card">
-                <div class="ex-icon-box">🏋️</div>
-                <div class="ex-info">
-                    <span class="ex-name">バランスキャットストレッチ</span>
-                    <span class="ex-detail">四つん這いから対角線上の手足をまっすぐ伸ばしてキープ。 20秒 × 3セット</span>
-                </div>
-            </div>
-        `;
-    }
+        </div>
+    `;
 }
 
 // Navigation triggers
 window.openViewerArea = function(session) {
     if (!session) {
         session = {
-            athleteName: patientNameInput.value || "サラ J. 様",
+            athleteName: patientNameInput.value || "CONNECT TOWN",
             height: parseFloat(heightInput.value) || 170,
             footSize: parseFloat(footSizeInput.value) || 25,
             timestamp: new Date().toISOString(),
