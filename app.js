@@ -2441,141 +2441,35 @@ window.updateWebGLPose = function(keypoints, w, h) {
 // Auto initialize on startup
 setTimeout(() => {
     window.initWebGLHUD();
-    seedDemoDataIfEmpty();
-}, 2000);? "右下がり" : "左下がり") + ")";
-    var frontShoulderClass = Math.abs(frontShoulderTilt) < 1.0 ? 'badge-normal' : 'badge-warning';
-
-    // 5. 右側面 骨盤 / 頸椎 (0.2°前傾 / 28mm)
-    var rSideTilt = rSideData ? (rSideData.pelvicTilt || 0) : 0.2;
-    var rSideTiltText = Math.abs(rSideTilt).toFixed(1) + "° " + (rSideTilt >= 0 ? "前傾" : "後傾");
-    var rSideHeadOffset = rSideData && rSideData.headOffset ? rSideData.headOffset : 2.8;
-    var rSideHeadText = rSideHeadOffset.toFixed(1) + " cm 突出 (" + (rSideHeadOffset * 10).toFixed(0) + "mm)";
-
-    metricsList.innerHTML = `
-        <div class="metric-row-card">
-            <div class="metric-info">
-                <span class="metric-title">骨盤傾斜角 (左側面 L-Side)</span>
-                <span class="metric-desc">骨盤の前後の傾き。測定値: 4.8°前傾（反り腰傾向）。</span>
-            </div>
-            <span class="metric-val-badge ${lSideTiltClass}">${lSideTiltText}</span>
-        </div>
-        <div class="metric-row-card">
-            <div class="metric-info">
-                <span class="metric-title">頸椎ストレス (左側面 L-Side)</span>
-                <span class="metric-desc">頭部前方突出量。測定値: 38mm。</span>
-            </div>
-            <span class="metric-val-badge ${headClass}">${headText}</span>
-        </div>
-        <div class="metric-row-card">
-            <div class="metric-info">
-                <span class="metric-title">骨盤アライメント (正面 Front)</span>
-                <span class="metric-desc">正面における左右の腰の水平左右差。測定値: 0.8°。</span>
-            </div>
-            <span class="metric-val-badge ${frontTiltClass}">${frontTiltText}</span>
-        </div>
-        <div class="metric-row-card">
-            <div class="metric-info">
-                <span class="metric-title">肩甲アライメント (正面 Front)</span>
-                <span class="metric-desc">正面における左右の肩の水平左右差。測定値: 0.9°。</span>
-            </div>
-            <span class="metric-val-badge ${frontShoulderClass}">${frontShoulderText}</span>
-        </div>
-        <div class="metric-row-card">
-            <div class="metric-info">
-                <span class="metric-title">右側面アライメント (右側面 R-Side)</span>
-                <span class="metric-desc">右側面からみた骨盤傾斜と頭部前方突出。測定値: 0.2° / 28mm。</span>
-            </div>
-            <span class="metric-val-badge badge-normal">${rSideTiltText} / ${rSideHeadText}</span>
-        </div>
-    `;
     
-    // Populate AI report text
-    var reportBox = document.getElementById('viewAiReportText');
-    if (session.aiReportText) {
-        reportBox.innerText = session.aiReportText;
-    } else if (reportMarkdown) {
-        reportBox.innerText = reportMarkdown;
-    } else {
-        reportBox.innerText = "【分析インサイト】\n静止4方向の撮影データに基づき、姿勢の非対称性および過緊張筋肉を分析しました。\n\n詳細なAIアセスメント評価（アドバイスや自宅トレーニング処方）を出力するには、APIキーを設定した上で「レポート表示」またはGeminiへのリクエストを実行してください。";
-    }
-    
-    // Populate Exercises Grid
-    var exGrid = document.getElementById('viewExercisesGrid');
-    exGrid.innerHTML = '';
-    
-    exGrid.innerHTML = `
-        <div class="exercise-card">
-            <div class="ex-icon-box">🧘</div>
-            <div class="ex-info">
-                <span class="ex-name">大腿直筋（太もも前部）のリリース</span>
-                <span class="ex-detail">左側面の強い前傾（+4.8°）による反り腰を解消するため、硬化した前ももをストレッチします。 30秒 × 3セット</span>
-            </div>
-        </div>
-        <div class="exercise-card">
-            <div class="ex-icon-box">🏋️</div>
-            <div class="ex-info">
-                <span class="ex-name">キャット＆カウ（背骨・骨盤分離運動）</span>
-                <span class="ex-detail">頭部前方突出（38mm）と骨盤前傾を改善するため、骨盤を前後にコントロールして背骨の柔軟性を出します。 10往復 × 2セット</span>
-            </div>
-        </div>
-        <div class="exercise-card">
-            <div class="ex-icon-box">🧱</div>
-            <div class="ex-info">
-                <span class="ex-name">片側サイドプランク（左右非対称ワーク）</span>
-                <span class="ex-detail">正面での骨盤の傾き（0.8°）と肩の傾き（0.9°）を修正するため、低下している脇腹（腹斜筋群）を強化します。 20秒 × 左右3セット</span>
-            </div>
-        </div>
-    `;
-}
-
-// Navigation triggers
-window.openViewerArea = function(session) {
-    if (!session) {
-        session = {
-            athleteName: patientNameInput.value || "CONNECT TOWN",
-            height: parseFloat(heightInput.value) || 170,
-            footSize: parseFloat(footSizeInput.value) || 25,
-            timestamp: new Date().toISOString(),
-            images: {},
-            measurements: {
-                l_side: { pelvicTilt: estimatedPelvicTilt }
+    // Bind toggle drawer button for mobile/tablet HUD
+    var toggleBtn = document.getElementById('toggleAnalyticsBtn');
+    var analyticsArea = document.getElementById('analyticsArea');
+    if (toggleBtn && analyticsArea) {
+        toggleBtn.onclick = function(e) {
+            e.stopPropagation();
+            analyticsArea.classList.toggle('analytics-open');
+            if (analyticsArea.classList.contains('analytics-open')) {
+                toggleBtn.innerText = "✖ 閉じる";
+                toggleBtn.style.borderColor = "var(--accent-red)";
+                toggleBtn.style.color = "var(--accent-red)";
+            } else {
+                toggleBtn.innerText = "📊 動作データ";
+                toggleBtn.style.borderColor = "var(--accent-teal)";
+                toggleBtn.style.color = "var(--accent-teal)";
             }
         };
+        
+        // Tap outside drawer to close
+        document.addEventListener('click', function(e) {
+            if (analyticsArea.classList.contains('analytics-open') && !analyticsArea.contains(e.target) && e.target !== toggleBtn) {
+                analyticsArea.classList.remove('analytics-open');
+                toggleBtn.innerText = "📊 動作データ";
+                toggleBtn.style.borderColor = "var(--accent-teal)";
+                toggleBtn.style.color = "var(--accent-teal)";
+            }
+        });
     }
     
-    populateViewer(session);
-    document.getElementById('clientViewerArea').style.display = 'flex';
-};
-
-window.closeViewerArea = function() {
-    document.getElementById('clientViewerArea').style.display = 'none';
-};
-
-// Bind navigation buttons on init
-setTimeout(() => {
-    var showBtn = document.getElementById('showViewerBtn');
-    var closeBtn = document.getElementById('closeViewerBtn');
-    
-    if (showBtn) {
-        showBtn.onclick = () => {
-            var currentSession = {
-                athleteName: patientNameInput.value || "ゲスト",
-                height: parseFloat(heightInput.value) || 170,
-                footSize: parseFloat(footSizeInput.value) || 25,
-                timestamp: new Date().toISOString(),
-                images: {},
-                measurements: {
-                    l_side: { pelvicTilt: estimatedPelvicTilt }
-                }
-            };
-            window.openViewerArea(currentSession);
-        };
-    }
-    
-    if (closeBtn) {
-        closeBtn.onclick = window.closeViewerArea;
-    }
-    
-    // Seed demo data on database load
     seedDemoDataIfEmpty();
 }, 2000);

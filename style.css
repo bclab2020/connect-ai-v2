@@ -1844,45 +1844,66 @@ select:hover {
    V2.8.1 Responsive Layout Adaptations (Stealth HUD Columns Stack)
    ========================================================================== */
 @media (max-width: 1024px) {
-    /* Tablet and Landscape Mobile: stack columns vertically */
+    /* Make visual container full screen always to prevent camera distortion */
     html body .hud-main-container {
-        flex-direction: column !important;
-        overflow-y: auto !important;
+        position: relative !important;
+        width: 100vw !important;
         height: 100vh !important;
+        overflow: hidden !important;
+        display: block !important;
     }
 
     html body .hud-main-container .visual-area {
-        width: 100% !important;
-        height: 55vh !important; /* 55% height of viewport, keeps aspect ratio correct */
-        min-height: 340px !important;
-        position: relative !important;
-        flex-shrink: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 10 !important;
     }
 
+    /* Show the toggle button for mobile/tablet */
+    html body #toggleAnalyticsBtn {
+        display: block !important;
+    }
+
+    /* Transform the right analytics sidebar into a drawer overlay */
     html body .hud-main-container .analytics-area {
-        width: 100% !important;
-        height: auto !important;
-        min-height: 280px !important;
-        border-left: none !important;
-        border-top: 1px solid #1a1a1a !important;
-        flex: 1 0 auto !important;
+        position: fixed !important;
+        right: -380px !important; /* Hide offscreen right */
+        top: 0 !important;
+        width: 340px !important;
+        height: 100vh !important;
+        z-index: 1500 !important; /* Stand above floating layers */
+        background: rgba(12, 12, 12, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border-left: 1px solid #1a1a1a !important;
+        border-top: none !important;
+        transition: right 0.3s cubic-bezier(0.1, 0.9, 0.2, 1) !important;
+        box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    /* Slide open when active class is added */
+    html body .hud-main-container .analytics-area.analytics-open {
+        right: 0 !important;
     }
 }
 
 @media (max-width: 768px) {
-    /* Portrait Mobile tweaks */
-    html body .hud-main-container .visual-area {
-        height: 48vh !important; /* Reduce video height to display more buttons and charts */
-        min-height: 280px !important;
+    /* Compact drawer for small smartphones */
+    html body .hud-main-container .analytics-area {
+        width: 280px !important;
+        right: -320px !important;
     }
     
-    html body .hud-main-container .analytics-area {
-        padding: 16px 20px !important;
+    html body .hud-main-container .analytics-area.analytics-open {
+        right: 0 !important;
     }
     
     html body .hud-main-container .analytics-area .metrics-list {
-        padding: 16px 0 !important;
-        gap: 15px !important;
+        padding: 16px !important;
+        gap: 12px !important;
     }
 }
 
