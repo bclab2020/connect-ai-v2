@@ -1550,7 +1550,12 @@ async function init() {
         console.error("AI Initialization Error:", e);
     }
 }
-window.addEventListener('load', init);
+// Safe document load binding to prevent event bypass
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    init();
+} else {
+    window.addEventListener('load', init);
+}
 // Camera Start Handler
 startBtn.onclick = async function() {
     renderSessionId++;
