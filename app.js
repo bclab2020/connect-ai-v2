@@ -2200,19 +2200,32 @@ async function seedDemoDataIfEmpty() {
 // ==========================================================================
 // V2.8.0 WebGL Stealth HUD Core Logic (Three.js integration)
 // ==========================================================================
-var glCanvas = document.getElementById('webgl-canvas');
+var glCanvas;
 var glScene, glCamera, glRenderer;
 var glJoints = {};
 var glMuscles = [];
-var glClock = new THREE.Clock();
+var glClock;
 
 var hudWidth = 640;
 var hudHeight = 480;
 
 window.initWebGLHUD = function() {
-    if (!glCanvas) return;
+    // Safety check for Three.js loading order
+    if (typeof THREE === 'undefined') {
+        console.warn("Three.js not loaded yet. Retrying in 500ms...");
+        setTimeout(window.initWebGLHUD, 500);
+        return;
+    }
+    
+    glCanvas = document.getElementById('webgl-canvas');
+    if (!glCanvas) {
+        console.warn("webgl-canvas element not found. Retrying in 500ms...");
+        setTimeout(window.initWebGLHUD, 500);
+        return;
+    }
     
     glScene = new THREE.Scene();
+    glClock = new THREE.Clock();
     
     // Set up ortho projection matching camera aspect ratios
     glCamera = new THREE.OrthographicCamera(-320, 320, 240, -240, 1, 1000);
