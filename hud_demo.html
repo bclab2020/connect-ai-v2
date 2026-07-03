@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATHLETECORE HUD - Precision Motion Analytics</title>
+    <!-- Imports Google Fonts: Inter and Roboto Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Import Three.js via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-dark: #050505;
+            --bg-card: #0c0c0c;
+            --border-color: #1a1a1a;
+            --text-primary: #ffffff;
+            --text-secondary: #888888;
+            
+            /* High-fidelity color palettes */
+            --color-amber: #ffaa00;      /* Amber / Orange transition */
+            --color-blood: #ff3c00;      /* Limit blood orange */
+            --color-normal: #333333;     /* Default steel gray */
+            --color-stretch: #e0e0e0;    /* Solid white-gray tension */
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-dark);
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        /* 2-Column Split Layout */
+        .hud-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Left: Visual Overlay Area */
+        .visual-area {
+            position: relative;
+            flex: 1;
+            height: 100%;
+            background: radial-gradient(circle at center, #111111 0%, #050505 100%);
+            border-right: 1px solid var(--border-color);
+        }
+
+        /* Mock video container / subject image backplate */
+        .video-backplate {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0.25; /* Stealth opacity */
+            z-index: 1;
+        }
+
+        .subject-silhouette {
+            width: auto;
+            height: 80%;
+            max-height: 600px;
+            filter: grayscale(1) contrast(1.2);
+        }
+
+        /* WebGL layer overlay */
+        #webgl-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none; /* Let overlay float silently */
+        }
+
+        /* Left corner tags */
+        .hud-tag {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 3;
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            border-left: 2px solid var(--text-secondary);
+            padding-left: 8px;
+        }
+
+        /* Right: Analytics Panel */
+        .analytics-area {
+            width: 380px;
+            height: 100%;
+            background-color: var(--bg-card);
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            z-index: 3;
+        }
+
+        .panel-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .panel-title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .panel-sub {
+            margin: 4px 0 0 0;
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Data list with monospace Roboto Mono */
+        .metrics-list {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .metric-card {
+            border-bottom: 1px solid #121212;
+            padding-bottom: 16px;
+        }
+
+        .metric-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 6px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-value {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        /* Precision Bar indicator */
+        .bar-container {
+            width: 100%;
+            height: 3px;
+            background-color: #1a1a1a;
+            position: relative;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 0%;
+            background-color: var(--color-normal);
+            transition: width 0.05s linear;
+        }
+
+        /* Monospace details log */
+        .status-console {
+            height: 120px;
+            background-color: #030303;
+            border-top: 1px solid var(--border-color);
+            padding: 16px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 10px;
+            color: #666;
+            overflow-y: hidden;
+            box-sizing: border-box;
+            line-height: 1.6;
+        }
+
+        .console-line {
+            margin-bottom: 4px;
+        }
+
+        .active-alert {
+            color: var(--color-amber) !important;
+        }
+
+        .limit-alert {
+            color: var(--color-blood) !important;
+            animation: pulse-console 1s infinite alternate;
+        }
+
+        @keyframes pulse-console {
+            0% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="hud-container">
+    <!-- Left Visualizer -->
+    <div class="visual-area">
+        <div class="hud-tag">Stealth HUD // WebGL Overlays</div>
+        
+        <!-- Subtle human silhouette backplate for relative positioning visualization -->
+        <div class="video-backplate">
+            <!-- Lightweight SVG mannequin frame representing a subject -->
+            <svg class="subject-silhouette" viewBox="0 0 100 200" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1.5">
+                <circle cx="50" cy="30" r="12" /> <!-- head -->
+                <line x1="50" y1="42" x2="50" y2="105" /> <!-- spine -->
+                <line x1="32" y1="50" x2="68" y2="50" /> <!-- shoulders -->
+                <line x1="38" y1="105" x2="62" y2="105" /> <!-- pelvis -->
+                <line x1="32" y1="50" x2="28" y2="90" /> <!-- left arm -->
+                <line x1="68" y1="50" x2="72" y2="90" /> <!-- right arm -->
+                <!-- Legs (slightly flexed) -->
+                <line x1="38" y1="105" x2="40" y2="145" /> <!-- L thigh -->
+                <line x1="40" y1="145" x2="38" y2="185" /> <!-- L calf -->
+                <line x1="62" y1="105" x2="60" y2="145" /> <!-- R thigh -->
+                <line x1="60" y1="145" x2="62" y2="185" /> <!-- R calf -->
+            </svg>
+        </div>
+        
+        <!-- Three.js Canvas Layer -->
+        <canvas id="webgl-canvas"></canvas>
+    </div>
+    
+    <!-- Right Sidebar Panel -->
+    <div class="analytics-area">
+        <div class="panel-header">
+            <h1 class="panel-title">Biomechanical Load</h1>
+            <div class="panel-sub">Stealth Minimalism Engine V2.8</div>
+        </div>
+        
+        <div class="metrics-list">
+            <!-- 1. Left Knee Flexion / Rectus Femoris load -->
+            <div class="metric-card">
+                <div class="metric-meta">
+                    <span class="metric-label">L-Knee Flexion (Rectus Femoris)</span>
+                    <span class="metric-value" id="val-l-knee">0.0°</span>
+                </div>
+                <div class="bar-container">
+                    <div id="bar-l-knee" class="bar-fill"></div>
+                </div>
+            </div>
+            
+            <!-- 2. Right Knee Flexion / Rectus Femoris load -->
+            <div class="metric-card">
+                <div class="metric-meta">
+                    <span class="metric-label">R-Knee Flexion (Rectus Femoris)</span>
+                    <span class="metric-value" id="val-r-knee">0.0°</span>
+                </div>
+                <div class="bar-container">
+                    <div id="bar-r-knee" class="bar-fill"></div>
+                </div>
+            </div>
+            
+            <!-- 3. Pelvic Tilt (Erectors strain) -->
+            <div class="metric-card">
+                <div class="metric-meta">
+                    <span class="metric-label">Pelvic Sagittal Tilt</span>
+                    <span class="metric-value" id="val-pelvic-tilt">0.0°</span>
+                </div>
+                <div class="bar-container">
+                    <div id="bar-pelvic-tilt" class="bar-fill"></div>
+                </div>
+            </div>
+
+            <!-- 4. Cervical Offset (Trapezius strain) -->
+            <div class="metric-card">
+                <div class="metric-meta">
+                    <span class="metric-label">Cervical Sagittal Offset</span>
+                    <span class="metric-value" id="val-cervical">0.0 mm</span>
+                </div>
+                <div class="bar-container">
+                    <div id="bar-cervical" class="bar-fill"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Console logs -->
+        <div class="status-console" id="console-output">
+            <div class="console-line">SYS // STEALTH HUD LOADED SUCCESSFUL</div>
+            <div class="console-line">SYS // LISTENING TO MEDIAPIPE MOTIONSTREAM</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // =========================================================================
+    // Three.js 3D/2D Bone & Muscle Renderer (Low Opacity Stealth Design)
+    // =========================================================================
+    var canvas = document.getElementById('webgl-canvas');
+    var scene = new THREE.Scene();
+    
+    // Set up Orthographic camera for clean technical projection
+    var aspect = canvas.clientWidth / canvas.clientHeight;
+    var frustumSize = 100;
+    var camera = new THREE.OrthographicCamera(
+        frustumSize * aspect / -2, frustumSize * aspect / 2,
+        frustumSize / 2, frustumSize / -2,
+        0.1, 1000
+    );
+    camera.position.set(0, 0, 100);
+    
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // Handle resizing
+    window.addEventListener('resize', onWindowResize);
+    function onWindowResize() {
+        var w = canvas.clientWidth;
+        var h = canvas.clientHeight;
+        renderer.setSize(w, h);
+        
+        var newAspect = w / h;
+        camera.left = frustumSize * newAspect / -2;
+        camera.right = frustumSize * newAspect / 2;
+        camera.top = frustumSize / 2;
+        camera.bottom = frustumSize / -2;
+        camera.updateProjectionMatrix();
+    }
+
+    // Material Definitions (Technical Muted Colors)
+    var boneMaterial = new THREE.LineBasicMaterial({
+        color: 0x888888,
+        linewidth: 2,
+        transparent: true,
+        opacity: 0.4
+    });
+
+    var jointMaterial = new THREE.MeshBasicMaterial({
+        color: 0xcccccc,
+        transparent: true,
+        opacity: 0.6
+    });
+
+    // Muscle Mesh Material (Stealth Shader Simulation using Basic material)
+    // Default color is mute gray. Turns amber -> blood orange upon load.
+    var lThighMaterial = new THREE.MeshBasicMaterial({
+        color: 0x333333,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.DoubleSide
+    });
+    
+    var rThighMaterial = new THREE.MeshBasicMaterial({
+        color: 0x333333,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.DoubleSide
+    });
+
+    // Build skeletal nodes
+    var joints = {};
+    var jointsConfig = {
+        hip_l: [-12, -10], hip_r: [12, -10],
+        knee_l: [-11, -35], knee_r: [11, -35],
+        ankle_l: [-10, -65], ankle_r: [10, -65],
+        shoulder_l: [-15, 20], shoulder_r: [15, 20],
+        neck: [0, 22], head: [0, 36]
+    };
+
+    var sphereGeo = new THREE.SphereGeometry(1.5, 16, 16);
+
+    Object.keys(jointsConfig).forEach(name => {
+        var pos = jointsConfig[name];
+        var mesh = new THREE.Mesh(sphereGeo, jointMaterial);
+        mesh.position.set(pos[0], pos[1], 0);
+        scene.add(mesh);
+        joints[name] = mesh;
+    });
+
+    // Muscles Geometry Setup (Cylinder representing Quadriceps Femoris)
+    var muscleGeo = new THREE.CylinderGeometry(2.5, 1.8, 1, 12, 1);
+    
+    var lThighMuscle = new THREE.Mesh(muscleGeo, lThighMaterial);
+    var rThighMuscle = new THREE.Mesh(muscleGeo, rThighMaterial);
+    scene.add(lThighMuscle);
+    scene.add(rThighMuscle);
+
+    // =========================================================================
+    // Dynamic Mock Data Loop (Simulating MediaPipe dynamic flexion)
+    // =========================================================================
+    var clock = new THREE.Clock();
+    var consoleOutput = document.getElementById('console-output');
+
+    function logConsole(message, type = 'info') {
+        var line = document.createElement('div');
+        line.className = 'console-line';
+        if (type === 'warn') line.classList.add('active-alert');
+        if (type === 'alert') line.classList.add('limit-alert');
+        line.innerText = `SYS // ${new Date().toISOString().split('T')[1].substring(0, 8)} // ${message}`;
+        consoleOutput.appendChild(line);
+        if (consoleOutput.children.length > 5) {
+            consoleOutput.removeChild(consoleOutput.children[0]);
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        
+        var elapsedTime = clock.getElapsedTime();
+        
+        // Simulating standard athletic squat motion using sin/cos loops
+        var squatPhase = (Math.sin(elapsedTime * 1.5) + 1) / 2; // Value normalized 0 to 1
+        
+        // 1. Joint Coordinate calculation based on dynamic squat phase
+        var yHipOffset = squatPhase * -20;
+        var yKneeOffset = squatPhase * -10;
+        
+        joints.hip_l.position.y = -10 + yHipOffset;
+        joints.hip_r.position.y = -10 + yHipOffset;
+        
+        // L-Knee flexes outwards, coordinates shift
+        joints.knee_l.position.y = -35 + yKneeOffset;
+        joints.knee_l.position.x = -11 - (squatPhase * 4);
+        
+        joints.knee_r.position.y = -35 + yKneeOffset;
+        joints.knee_r.position.x = 11 + (squatPhase * 4);
+        
+        // 2. Calculations: Knee Angle (Flexion)
+        // Basic angle conversion representing squat load (e.g. 0 to 110 degrees)
+        var kneeAngleL = squatPhase * 105;
+        var kneeAngleR = squatPhase * 105;
+        
+        // Dynamic Pelvic Sagittal Tilt (changes with depth)
+        var pelvicTilt = 5.0 + (squatPhase * 12.5); // 5 to 17.5 degrees
+        
+        // Cervical spine strain (slight head extension for look ahead)
+        var cervicalOffset = 25.0 + (squatPhase * 15.0); // 25mm to 40mm
+
+        // Update UI Panel elements with Monospace precision
+        document.getElementById('val-l-knee').innerText = kneeAngleL.toFixed(1) + "°";
+        document.getElementById('val-r-knee').innerText = kneeAngleR.toFixed(1) + "°";
+        document.getElementById('val-pelvic-tilt').innerText = pelvicTilt.toFixed(1) + "°";
+        document.getElementById('val-cervical').innerText = cervicalOffset.toFixed(0) + " mm";
+
+        // Update indicators widths
+        document.getElementById('bar-l-knee').style.width = Math.min(100, (kneeAngleL / 110) * 100) + "%";
+        document.getElementById('bar-r-knee').style.width = Math.min(100, (kneeAngleR / 110) * 100) + "%";
+        document.getElementById('bar-pelvic-tilt').style.width = Math.min(100, (pelvicTilt / 20) * 100) + "%";
+        document.getElementById('bar-cervical').style.width = Math.min(100, (cervicalOffset / 50) * 100) + "%";
+
+        // 3. COLOR LOGIC: 无色(Mute gray) -> Amber -> Blood Orange (Stress Overheat)
+        updateMuscleColorAndBar(lThighMaterial, 'bar-l-knee', kneeAngleL / 105);
+        updateMuscleColorAndBar(rThighMaterial, 'bar-r-knee', kneeAngleR / 105);
+        
+        // Update bar colors based on limits
+        updateBarColor('bar-pelvic-tilt', pelvicTilt / 20);
+        updateBarColor('bar-cervical', cervicalOffset / 50);
+
+        // 4. Update Muscle Cylinders Position, Scale & Orientation
+        updateMuscleSegmentMesh(lThighMuscle, joints.hip_l.position, joints.knee_l.position);
+        updateMuscleSegmentMesh(rThighMuscle, joints.hip_r.position, joints.knee_r.position);
+
+        // 5. Console periodic log alerts on threshold limits
+        if (elapsedTime % 4 < 0.02) {
+            if (squatPhase > 0.8) {
+                logConsole(`CRITICAL STRESS AT L-KNEE // LOAD MAX`, 'alert');
+            } else if (squatPhase > 0.5) {
+                logConsole(`MODERATE LATERAL SHEAR DETECTED`, 'warn');
+            } else {
+                logConsole(`JOINT ALIGNMENT STABLE // NORMAL`);
+            }
+        }
+        
+        renderer.render(scene, camera);
+    }
+
+    // Positions and aligns muscle cylinder between two joints in 3D Space
+    function updateMuscleSegmentMesh(mesh, startPos, endPos) {
+        var dir = new THREE.Vector3().subVectors(endPos, startPos);
+        var len = dir.length();
+        
+        // Update length scale
+        mesh.scale.set(1, len, 1);
+        
+        // Position mid-point
+        var midPoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+        mesh.position.copy(midPoint);
+        
+        // Align orientation axis
+        dir.normalize();
+        var alignAxis = new THREE.Vector3(0, 1, 0); // cylinder orientation
+        mesh.quaternion.setFromUnitVectors(alignAxis, dir);
+    }
+
+    // Color conversion interpolation: Gray (0x333333) -> Amber (0xffaa00) -> Blood (0xff3c00)
+    function updateMuscleColorAndBar(material, barId, ratio) {
+        var color = new THREE.Color();
+        var barElement = document.getElementById(barId);
+        
+        if (ratio < 0.3) {
+            // Muted stealth normal state
+            color.setHex(0x333333);
+            material.opacity = 0.25;
+            barElement.style.backgroundColor = 'var(--color-normal)';
+        } else if (ratio < 0.8) {
+            // Amber load increase phase
+            var subRatio = (ratio - 0.3) / 0.5;
+            color.lerpColors(new THREE.Color(0x333333), new THREE.Color(0xffaa00), subRatio);
+            material.opacity = 0.25 + (subRatio * 0.25);
+            barElement.style.backgroundColor = 'var(--color-amber)';
+        } else {
+            // Blood orange limits (Limit Stress)
+            var subRatio = (ratio - 0.8) / 0.2;
+            color.lerpColors(new THREE.Color(0xffaa00), new THREE.Color(0xff3c00), subRatio);
+            
+            // Pulse opacity at limits
+            var pulse = Math.sin(clock.getElapsedTime() * 12) * 0.15 + 0.65;
+            material.opacity = pulse;
+            barElement.style.backgroundColor = 'var(--color-blood)';
+            
+            // Add subtle glow limit style class
+            if (elapsedTime % 0.5 < 0.1) {
+                barElement.style.boxShadow = '0 0 8px #ff3c00';
+            }
+        }
+        material.color.copy(color);
+    }
+
+    function updateBarColor(barId, ratio) {
+        var bar = document.getElementById(barId);
+        if (ratio < 0.5) {
+            bar.style.backgroundColor = 'var(--text-secondary)';
+        } else if (ratio < 0.8) {
+            bar.style.backgroundColor = 'var(--color-stretch)';
+        } else {
+            bar.style.backgroundColor = '#ffffff';
+        }
+    }
+
+    // Kick off animation loop
+    animate();
+</script>
+
+</body>
+</html>

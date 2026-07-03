@@ -17,9 +17,18 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
     
+    <!-- Three.js for WebGL Muscle/Skeleton Overlay -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Fonts Inter & Roboto Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="style.css?v=2.7.2">
 </head>
 <body>
+
+<div class="hud-main-container">
+    <!-- Left column: Visual Area (Live stream, old overlay canvas, controls) -->
+    <div class="visual-area">
 
 <div class="view-port">
     <!-- Hidden video stream -->
@@ -27,6 +36,8 @@
     
     <!-- Main visualization canvas -->
     <canvas id="canvasMP"></canvas>
+    <!-- WebGL Three.js Overlay Canvas -->
+    <canvas id="webgl-canvas"></canvas>
     
     <!-- HUD details -->
     <div class="hud-label" id="appHeaderTitle">ÉLITE PERFORMANCE <span class="badge">Precision in Motion</span></div>
@@ -382,76 +393,68 @@ window.addEventListener('load', () => {
 });
 </script>
 
-<!-- Client Viewer Area (V2.7.0 App-based interactiveビューアー) -->
-<div id="clientViewerArea" class="client-viewer-container" style="display:none;">
-    <div class="viewer-header">
-        <button id="closeViewerBtn" class="viewer-back-btn">🔙 戻る</button>
-        <h2 id="viewerTitle">📊 姿勢 & 筋骨格アセスメント</h2>
-        <button id="viewerPrintBtn" class="viewer-print-btn" onclick="prepareAndPrintReport()">📄 印刷</button>
-    </div>
-    
-    <div class="viewer-content">
-        <!-- 1. Profile / Score Card -->
-        <div class="viewer-card hero-card">
-            <div class="profile-meta">
-                <span class="profile-name" id="viewProfileName">サラ J. 様</span>
-                <span class="profile-date" id="viewProfileDate">2026/07/02 16:53</span>
+    </div> <!-- Close .visual-area -->
+
+    <!-- Right column: Data Analytics Sidebar (別領域) -->
+    <div class="analytics-area">
+        <div class="panel-header">
+            <h1 class="panel-title">Biomechanical Load</h1>
+            <div class="panel-sub">Stealth Analytics Engine</div>
+        </div>
+        
+        <div class="metrics-list">
+            <!-- 1. Left Knee Flexion / Rectus Femoris load -->
+            <div class="metric-card">
+                <div class="metric-meta">
+                    <span class="metric-label">L-Knee Flexion (Rectus Femoris)</span>
+                    <span class="metric-value" id="val-l-knee">0.0°</span>
+                </div>
+                <div class="bar-container">
+                    <div id="bar-l-knee" class="bar-fill"></div>
+                </div>
             </div>
-            <div class="score-circle-wrapper">
-                <div class="score-circle">
-                    <span class="score-num" id="viewScoreNum">88</span>
-                    <span class="score-lbl">姿勢スコア</span>
+            
+            <!-- 2. Right Knee Flexion / Rectus Femoris load -->
+            <div class="metric-card">
+                <div class="metric-meta">
+                    <span class="metric-label">R-Knee Flexion (Rectus Femoris)</span>
+                    <span class="metric-value" id="val-r-knee">0.0°</span>
+                </div>
+                <div class="bar-container">
+                    <div id="bar-r-knee" class="bar-fill"></div>
+                </div>
+            </div>
+            
+            <!-- 3. Pelvic Tilt (Erectors strain) -->
+            <div class="metric-card">
+                <div class="metric-meta">
+                    <span class="metric-label">Pelvic Sagittal Tilt</span>
+                    <span class="metric-value" id="val-pelvic-tilt">0.0°</span>
+                </div>
+                <div class="bar-container">
+                    <div id="bar-pelvic-tilt" class="bar-fill"></div>
+                </div>
+            </div>
+
+            <!-- 4. Cervical Offset (Trapezius strain) -->
+            <div class="metric-card">
+                <div class="metric-meta">
+                    <span class="metric-label">Cervical Sagittal Offset</span>
+                    <span class="metric-value" id="val-cervical">0.0 mm</span>
+                </div>
+                <div class="bar-container">
+                    <div id="bar-cervical" class="bar-fill"></div>
                 </div>
             </div>
         </div>
         
-        <!-- 2. Interactive Image Grid -->
-        <div class="viewer-section-title">🧍 姿勢スキャン（全4方向）</div>
-        <p class="viewer-section-desc">※画像をタップすると拡大表示されます</p>
-        <div class="viewer-image-grid">
-            <div class="viewer-image-card" onclick="openFullscreenModal('front')">
-                <span class="card-tag">前面 (Front)</span>
-                <img id="viewImgFront" src="./demo_front.png" alt="前面">
-            </div>
-            <div class="viewer-image-card" onclick="openFullscreenModal('back')">
-                <span class="card-tag">後面 (Back)</span>
-                <img id="viewImgBack" src="./demo_back.png" alt="後面">
-            </div>
-            <div class="viewer-image-card" onclick="openFullscreenModal('l_side')">
-                <span class="card-tag">左側面 (L-Side)</span>
-                <img id="viewImgLSide" src="./demo_side.png" alt="左側面">
-            </div>
-            <div class="viewer-image-card" onclick="openFullscreenModal('r_side')">
-                <span class="card-tag">右側面 (R-Side)</span>
-                <img id="viewImgRSide" src="./demo_right.png" alt="右側面">
-            </div>
+        <!-- Bottom Console logs -->
+        <div class="status-console" id="console-output">
+            <div class="console-line">SYS // STEALTH HUD LOADED SUCCESSFUL</div>
+            <div class="console-line">SYS // LISTENING TO MEDIAPIPE MOTIONSTREAM</div>
         </div>
-        
-        <!-- 3. Metrics Detail Card -->
-        <div class="viewer-section-title">📐 測定指標・アライメント</div>
-        <div class="viewer-metrics-list" id="viewMetricsList">
-            <!-- Dynamically populated card rows -->
-        </div>
-        
-        <!-- 4. AI assessment & Exercises -->
-        <div class="viewer-section-title">💡 姿勢改善アドバイス ＆ トレーニング</div>
-        <div class="viewer-card text-card" id="viewAiReportText">
-            AIアセスメントレポートを取得中、またはデモデータが表示されています。
-        </div>
-        
-        <div class="viewer-section-title">🏋️ 自宅でできる改善エクササイズ</div>
-        <div class="viewer-exercises-grid" id="viewExercisesGrid">
-            <!-- Dynamically populated exercises -->
-        </div>
-    </div>
-</div>
-
-<!-- Fullscreen Image Modal -->
-<div id="fullscreenImgModal" class="fullscreen-modal" style="display:none;" onclick="closeFullscreenModal()">
-    <span class="modal-close-x" onclick="event.stopPropagation(); closeFullscreenModal();">✖</span>
-    <img id="fullscreenImgTarget" src="" alt="拡大画像">
-    <div id="fullscreenImgCaption" class="modal-caption">前面</div>
-</div>
+    </div> <!-- Close .analytics-area -->
+</div> <!-- Close .hud-main-container -->
 
 </body>
 </html>

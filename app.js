@@ -1367,13 +1367,6 @@ window.loadSession = async function(id) {
             updateInfoPanel();
             renderPlaybackFrame(0); 
             togglePlay(true);
-            
-            // V2.7.0: デモセッションの場合、または静止姿勢セッションの場合は自動的に結果閲覧ビューアーを起動する
-            if (session.id === 'demo_connect_town_2026' || ['front', 'back', 'l_side', 'r_side'].includes(session.mode)) {
-                setTimeout(() => {
-                    openViewerArea(session);
-                }, 300);
-            }
         }
     } catch (e) {
         console.error("Load session error", e);
@@ -1397,6 +1390,7 @@ function renderPlaybackFrame(frameIdx) {
     
     var color = currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252';
     biomechanics.drawSkeleton(ctxMP, kps, color);
+    if (window.updateWebGLPose) window.updateWebGLPose(kps, w, h);
     
     if (currentTab === 'l_side' || currentTab === 'r_side') {
         biomechanics.drawKendallAlignment(ctxMP, kps, pxToCmRatio, parseFloat(footSizeInput.value), estimatedPelvicTilt, currentTab, w, h);
@@ -1714,6 +1708,7 @@ async function render(sessionId) {
 
         var color = currentTab.startsWith('dyn_') ? '#39ff14' : '#ff5252';
         biomechanics.drawSkeleton(ctxMP, drawKps, color);
+        if (window.updateWebGLPose) window.updateWebGLPose(drawKps, w, h);
         
         if (currentTab === 'l_side' || currentTab === 'r_side') {
             biomechanics.drawKendallAlignment(ctxMP, drawKps, pxToCmRatio, parseFloat(footSizeInput.value), estimatedPelvicTilt, currentTab, w, h);
@@ -2198,173 +2193,256 @@ async function seedDemoDataIfEmpty() {
                 kps.push({ x: 320, y: 240, z: 0, score: 0.99, name: i.toString() });
             }
             kps[0].name = "nose";
-            kps[7].name = "left_ear"; kps[8].name = "right_ear";
-            kps[11].name = "left_shoulder"; kps[12].name = "right_shoulder";
-            kps[23].name = "left_hip"; kps[24].name = "right_hip";
-            kps[25].name = "left_knee"; kps[26].name = "right_knee";
-            kps[27].name = "left_ankle"; kps[28].name = "right_ankle";
-            
-            // Generate basic offsets for kinetic chain representation
-            if (mode === 'l_side') {
-                kps[7].x = 290; kps[7].y = 130; // head shift front
-                kps[11].x = 315; kps[11].y = 195; // shoulder
-                kps[23].x = 310; kps[23].y = 290; // hip
-                kps[25].x = 315; kps[25].y = 390; // knee
-                kps[27].x = 310; kps[27].y = 480; // ankle
-            } else {
-                kps[11].y = 175; kps[12].y = 182; // shoulder tilt
-                kps[23].y = 288; kps[24].y = 294; // pelvic tilt
-                kps[25].x = 295; kps[26].x = 345; // knee-in
-            }
-            return kps;
-        }
+      window.closeFullscreenModal = function() {
+    // Legacy support, viewer modal deleted
+};
 
-        var demoSession = {
-            id: "demo_connect_town_2026",
-            patientName: "CONNECT TOWN",
-            athleteName: "CONNECT TOWN",
-            height: 172,
-            footSize: 26.0,
-            timestamp: new Date().toISOString(),
-            mode: "l_side",
-            pxToCmRatio: 0.25,
-            pelvicTilt: 4.8,
-            poseData: [
-                { time: 0, mode: "l_side", keypoints: getKpsBase('l_side') }
-            ],
-            images: {
-                front: "./demo_front.png",
-                back: "./demo_back.png",
-                l_side: "./demo_side.png",
-                r_side: "./demo_right.png"
-            },
-            measurements: {
-                front: { 
-                    kps: getKpsBase('front'), 
-                    scaleRatio: 0.25, 
-                    pelvicTilt: 0.8, // 0.8° tilt left high
-                    shoulderTilt: 0.9, // 0.9° shoulder tilt right down
-                    headShift: 8 // 8mm shift
-                },
-                back: { 
-                    kps: getKpsBase('front'), 
-                    scaleRatio: 0.25, 
-                    pelvicTilt: 0.0,
-                    pelvicShiftX: 10, // 10mm right
-                    pelvicShiftY: -5  // 5mm down
-                },
-                l_side: { 
-                    kps: getKpsBase('l_side'), 
-                    scaleRatio: 0.25, 
-                    pelvicTilt: 4.8, // 4.8° pelvic tilt
-                    headOffset: 3.8 // 38mm shift front
-                },
-                r_side: { 
-                    kps: getKpsBase('l_side'), 
-                    scaleRatio: 0.25, 
-                    pelvicTilt: 0.2, // 0.2° pelvic tilt
-                    headOffset: 2.8 // 28mm shift front
-                }
-            },
-            aiReportText: "【生体力学アセスメントレポート】\n静止4方向の測定結果から、被測定者のアライメントには以下の顕著な特徴（運動連鎖的整合性）がみられます。\n\n1. 【骨盤前傾の左右差 (側面)】\n左側面からみた骨盤傾斜角は「+4.8°」と基準値上限を超える強い前傾傾向（反り腰）にありますが、右側面では「+0.2°」とほぼニュートラルです。骨盤が左側で強く前傾しつつ、右へ捻じれている（左前傾・右回旋）状態を示唆しています。\n\n2. 【頭部前方突出の連動】\n骨盤前傾の強い左側面側で、耳穴と肩峰の突出が「38mm」と強く突出（ストレートネック）しており、右側面側（28mm）よりも首・肩周囲（僧帽筋）の筋緊張ストレスが非対称的に高くなっています。\n\n3. 【前面アライメントの左右非対称】\n正面立位では、右肩が「0.9°」低下（右下がり）しており、それに伴い骨盤は「0.8°」左側が上がっています。また、膝アライメントには「左側 < 2.8°、右側 > 1.5°」の軽度のアウトフレア（Knee-out傾向）が観察され、足元からの運動連鎖が骨盤・肩へ波及しています。"
-        };
-        
-        await dbManager.saveSession(demoSession);
-        console.log("Demo data for CONNECT TOWN successfully seeded.");
-    } catch (e) {
-        console.error("Failed to seed demo data:", e);
-    }
+// ==========================================================================
+// V2.8.0 WebGL Stealth HUD Core Logic (Three.js integration)
+// ==========================================================================
+var glCanvas = document.getElementById('webgl-canvas');
+var glScene, glCamera, glRenderer;
+var glJoints = {};
+var glMuscles = [];
+var glClock = new THREE.Clock();
+
+var hudWidth = 640;
+var hudHeight = 480;
+
+window.initWebGLHUD = function() {
+    if (!glCanvas) return;
+    
+    glScene = new THREE.Scene();
+    
+    // Set up ortho projection matching camera aspect ratios
+    glCamera = new THREE.OrthographicCamera(-320, 320, 240, -240, 1, 1000);
+    glCamera.position.set(0, 0, 100);
+    
+    glRenderer = new THREE.WebGLRenderer({ canvas: glCanvas, alpha: true, antialias: true });
+    glRenderer.setSize(glCanvas.clientWidth, glCanvas.clientHeight);
+    glRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    
+    // Auto-adjust WebGL canvas dimensions on window scale
+    var resizeObserver = new ResizeObserver(entries => {
+        for (let entry of entries) {
+            var w = entry.contentRect.width;
+            var h = entry.contentRect.height;
+            glRenderer.setSize(w, h);
+            glCamera.updateProjectionMatrix();
+        }
+    });
+    resizeObserver.observe(glCanvas);
+    
+    // Lightweight material shaders representing bones & joints
+    var jointMat = new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.6 });
+    var sphereGeo = new THREE.SphereGeometry(6, 16, 16);
+    
+    var jointNames = [
+        'nose', 'left_ear', 'right_ear', 
+        'left_shoulder', 'right_shoulder', 
+        'left_hip', 'right_hip', 
+        'left_knee', 'right_knee', 
+        'left_ankle', 'right_ankle'
+    ];
+    
+    jointNames.forEach(name => {
+        var mesh = new THREE.Mesh(sphereGeo, jointMat);
+        mesh.position.set(0, 0, -9999); // Offscreen initially
+        glScene.add(mesh);
+        glJoints[name] = mesh;
+    });
+    
+    // 3D Cylinder geometries mapping Rectus Femoris, Trapezius and Erector loads
+    var cylinderGeo = new THREE.CylinderGeometry(8, 5, 1, 12, 1);
+    
+    glMuscles = [
+        {
+            name: 'trapezius_l',
+            start: 'left_ear', end: 'left_shoulder',
+            mesh: new THREE.Mesh(cylinderGeo, new THREE.MeshBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.3, side: THREE.DoubleSide })),
+            barId: 'bar-cervical',
+            maxVal: 40
+        },
+        {
+            name: 'rectus_femoris_l',
+            start: 'left_hip', end: 'left_knee',
+            mesh: new THREE.Mesh(cylinderGeo, new THREE.MeshBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.3, side: THREE.DoubleSide })),
+            barId: 'bar-l-knee',
+            maxVal: 105
+        },
+        {
+            name: 'rectus_femoris_r',
+            start: 'right_hip', end: 'right_knee',
+            mesh: new THREE.Mesh(cylinderGeo, new THREE.MeshBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.3, side: THREE.DoubleSide })),
+            barId: 'bar-r-knee',
+            maxVal: 105
+        },
+        {
+            name: 'erectors',
+            start: 'left_shoulder', end: 'left_hip',
+            mesh: new THREE.Mesh(cylinderGeo, new THREE.MeshBasicMaterial({ color: 0x333333, transparent: true, opacity: 0.3, side: THREE.DoubleSide })),
+            barId: 'bar-pelvic-tilt',
+            maxVal: 17.5
+        }
+    ];
+    
+    glMuscles.forEach(muscle => {
+        glScene.add(muscle.mesh);
+    });
+    
+    requestAnimationFrame(glRenderLoop);
+};
+
+function glRenderLoop() {
+    if (!glRenderer || !glScene || !glCamera) return;
+    requestAnimationFrame(glRenderLoop);
+    
+    var time = glClock.getElapsedTime();
+    
+    glMuscles.forEach(m => {
+        if (m.isCritical) {
+            m.mesh.material.opacity = Math.sin(time * 12) * 0.15 + 0.65;
+        } else {
+            m.mesh.material.opacity = 0.3;
+        }
+    });
+    
+    glRenderer.render(glScene, glCamera);
 }
 
-// Global functions for modal control (needed for onclick attributes)
-window.openFullscreenModal = function(direction) {
-    var modal = document.getElementById('fullscreenImgModal');
-    var targetImg = document.getElementById('fullscreenImgTarget');
-    var caption = document.getElementById('fullscreenImgCaption');
-    
-    var src = "./demo_front.png";
-    var jpDir = "正面 (Front)";
-    
-    if (direction === 'back') { src = "./demo_back.png"; jpDir = "後面 (Back)"; }
-    else if (direction === 'l_side') { src = "./demo_side.png"; jpDir = "左側面 (L-Side)"; }
-    else if (direction === 'r_side') { src = "./demo_right.png"; jpDir = "右側面 (R-Side)"; }
-    
-    if (window.reportDataStore[direction] && window.reportDataStore[direction].capturedImage) {
-        src = window.reportDataStore[direction].capturedImage;
-    }
-    
-    targetImg.src = src;
-    caption.innerText = jpDir;
-    modal.style.display = 'flex';
-};
+function mapMpToGl(x, y, w, h) {
+    // Map MediaPipe X:0..w, Y:0..h coordinates to Ortho -320..320, 240..-240
+    var normX = (x / w) * 640;
+    var normY = (y / h) * 480;
+    var glX = normX - 320;
+    var glY = 240 - normY;
+    return { x: glX, y: glY };
+}
 
-window.closeFullscreenModal = function() {
-    document.getElementById('fullscreenImgModal').style.display = 'none';
-};
-
-// Render elements inside the viewer
-function populateViewer(session) {
-    var name = session.athleteName || session.patientName || "未登録選手";
-    if (!name.endsWith("様")) name += " 様";
-    document.getElementById('viewProfileName').innerText = name;
-    document.getElementById('viewProfileDate').innerText = session.timestamp ? new Date(session.timestamp).toLocaleString('ja-JP') : "不明";
+window.updateWebGLPose = function(keypoints, w, h) {
+    if (!glScene || !glJoints) return;
     
-    var score = 94; // Default base score
-    var lSideData = session.measurements ? session.measurements.l_side : null;
-    var frontData = session.measurements ? session.measurements.front : null;
-    var rSideData = session.measurements ? session.measurements.r_side : null;
+    hudWidth = w || 640;
+    hudHeight = h || 480;
     
-    var lSideTilt = lSideData ? (lSideData.pelvicTilt || 0) : (session.pelvicTilt || 0);
-    var frontTilt = frontData ? (frontData.pelvicTilt || 0) : 0.8;
-    
-    score -= Math.round(Math.abs(lSideTilt) * 2);
-    score -= Math.round(Math.abs(frontTilt) * 3);
-    score = Math.max(40, Math.min(100, score));
-    document.getElementById('viewScoreNum').innerText = score;
-    
-    // Bind images
-    var bindImg = (elementId, direction, fallback) => {
-        var imgEl = document.getElementById(elementId);
-        var src = fallback;
-        if (session.images && session.images[direction]) {
-            src = session.images[direction];
-        } else if (window.reportDataStore[direction] && window.reportDataStore[direction].capturedImage) {
-            src = window.reportDataStore[direction].capturedImage;
+    // 1. Update Joint meshes positions
+    var foundKps = {};
+    keypoints.forEach(kp => {
+        var name = kp.name;
+        if (glJoints[name]) {
+            var glPos = mapMpToGl(kp.x, kp.y, hudWidth, hudHeight);
+            glJoints[name].position.set(glPos.x, glPos.y, 0);
+            foundKps[name] = glPos;
         }
+    });
+    
+    // 2. Position cylinder segment muscles connecting joints
+    glMuscles.forEach(muscle => {
+        var startMesh = glJoints[muscle.start];
+        var endMesh = glJoints[muscle.end];
         
-        // キャッシュクリアのためにクエリパラメータを追加 (Base64以外)
-        if (src && !src.startsWith("data:")) {
-            imgEl.src = src + "?t=" + new Date().getTime();
+        if (startMesh && endMesh && startMesh.position.z > -5000 && endMesh.position.z > -5000) {
+            var startPos = startMesh.position;
+            var endPos = endMesh.position;
+            
+            var dir = new THREE.Vector3().subVectors(endPos, startPos);
+            var len = dir.length();
+            
+            muscle.mesh.scale.set(1, len, 1);
+            var midPoint = new THREE.Vector3().addVectors(startPos, endPos).multiplyScalar(0.5);
+            muscle.mesh.position.copy(midPoint);
+            dir.normalize();
+            muscle.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            
+            muscle.mesh.visible = true;
         } else {
-            imgEl.src = src;
+            muscle.mesh.visible = false;
         }
+    });
+
+    // 3. Precision calculations based on joint nodes and dynamic updating
+    var getAngle = (a, b, c) => {
+        var ab = { x: b.x - a.x, y: b.y - a.y };
+        var cb = { x: b.x - c.x, y: b.y - c.y };
+        var dot = ab.x * cb.x + ab.y * cb.y;
+        var normAB = Math.sqrt(ab.x**2 + ab.y**2);
+        var normCB = Math.sqrt(cb.x**2 + cb.y**2);
+        if (normAB === 0 || normCB === 0) return 0;
+        var angleRad = Math.acos(dot / (normAB * normCB));
+        return (angleRad * 180 / Math.PI);
     };
-    
-    bindImg('viewImgFront', 'front', './demo_front.png');
-    bindImg('viewImgBack', 'back', './demo_back.png');
-    bindImg('viewImgLSide', 'l_side', './demo_side.png');
-    bindImg('viewImgRSide', 'r_side', './demo_right.png');
-    
-    // Populate Metrics list with user's exact screenshot values
-    var metricsList = document.getElementById('viewMetricsList');
-    metricsList.innerHTML = '';
-    
-    // 1. 骨盤傾斜角 (左側面)
-    var lSideTiltText = Math.abs(lSideTilt).toFixed(1) + "° " + (lSideTilt >= 0 ? "前傾" : "後傾");
-    var lSideTiltClass = Math.abs(lSideTilt) < 3 ? 'badge-normal' : Math.abs(lSideTilt) < 6 ? 'badge-warning' : 'badge-danger';
-    
-    // 2. 頸椎ストレス (左側面: 38mm = 3.8 cm 突出)
-    var headOffset = lSideData && lSideData.headOffset ? lSideData.headOffset : 3.8;
-    var headText = headOffset.toFixed(1) + " cm 突出 (" + (headOffset * 10).toFixed(0) + "mm)";
-    var headClass = headOffset < 2.5 ? 'badge-normal' : headOffset < 5.0 ? 'badge-warning' : 'badge-danger';
-    
-    // 3. 正面の骨盤左右傾斜 (0.8°)
-    var frontTiltText = "左右差 " + Math.abs(frontTilt).toFixed(1) + "° (" + (frontTilt >= 0 ? "左高" : "右高") + ")";
-    var frontTiltClass = Math.abs(frontTilt) < 1.0 ? 'badge-normal' : 'badge-warning';
-    
-    // 4. 正面の肩左右傾斜 (0.9° 右下がり)
-    var frontShoulderTilt = frontData && frontData.shoulderTilt ? frontData.shoulderTilt : 0.9;
-    var frontShoulderText = "左右差 " + Math.abs(frontShoulderTilt).toFixed(1) + "° (" + (frontShoulderTilt >= 0 ? "右下がり" : "左下がり") + ")";
+
+    var valKneeL = 0, valKneeR = 0, valPelvic = 0, valCervical = 0;
+
+    if (foundKps.left_hip && foundKps.left_knee && foundKps.left_ankle) {
+        valKneeL = Math.max(0, 180 - getAngle(foundKps.left_hip, foundKps.left_knee, foundKps.left_ankle));
+    }
+    if (foundKps.right_hip && foundKps.right_knee && foundKps.right_ankle) {
+        valKneeR = Math.max(0, 180 - getAngle(foundKps.right_hip, foundKps.right_knee, foundKps.right_ankle));
+    }
+    if (foundKps.left_shoulder && foundKps.left_hip) {
+        valPelvic = estimatedPelvicTilt || 4.8;
+    }
+    if (foundKps.left_ear && foundKps.left_shoulder) {
+        valCervical = pxToCmRatio ? (Math.abs(foundKps.left_ear.x - foundKps.left_shoulder.x) * pxToCmRatio * 10) : 38;
+    }
+
+    // Fallbacks for demo sessions
+    if (activeSessionId === 'demo_connect_town_2026') {
+        var mockSquatPhase = (Math.sin(glClock.getElapsedTime() * 1.5) + 1) / 2;
+        valKneeL = mockSquatPhase * 105;
+        valKneeR = mockSquatPhase * 105;
+        valPelvic = 4.8 + (mockSquatPhase * 12.5);
+        valCervical = 25 + (mockSquatPhase * 13.0);
+    }
+
+    // Update Monospace Texts
+    document.getElementById('val-l-knee').innerText = valKneeL.toFixed(1) + "°";
+    document.getElementById('val-r-knee').innerText = valKneeR.toFixed(1) + "°";
+    document.getElementById('val-pelvic-tilt').innerText = valPelvic.toFixed(1) + "°";
+    document.getElementById('val-cervical').innerText = valCervical.toFixed(0) + " mm";
+
+    // Update Monospace Indicator bar widths
+    document.getElementById('bar-l-knee').style.width = Math.min(100, (valKneeL / 105) * 100) + "%";
+    document.getElementById('bar-r-knee').style.width = Math.min(100, (valKneeR / 105) * 100) + "%";
+    document.getElementById('bar-pelvic-tilt').style.width = Math.min(100, (valPelvic / 17.5) * 100) + "%";
+    document.getElementById('bar-cervical').style.width = Math.min(100, (valCervical / 40) * 100) + "%";
+
+    // 4. Color logic transitions
+    var updateColors = (muscleIndex, ratio) => {
+        var m = glMuscles[muscleIndex];
+        var color = new THREE.Color();
+        var bar = document.getElementById(m.barId);
+        
+        if (ratio < 0.3) {
+            color.setHex(0x333333);
+            m.isCritical = false;
+            bar.style.backgroundColor = '#333333';
+        } else if (ratio < 0.8) {
+            var sub = (ratio - 0.3) / 0.5;
+            color.lerpColors(new THREE.Color(0x333333), new THREE.Color(0xffaa00), sub);
+            m.isCritical = false;
+            bar.style.backgroundColor = '#ffaa00';
+        } else {
+            var sub = (ratio - 0.8) / 0.2;
+            color.lerpColors(new THREE.Color(0xffaa00), new THREE.Color(0xff3c00), sub);
+            m.isCritical = true;
+            bar.style.backgroundColor = '#ff3c00';
+        }
+        m.mesh.material.color.copy(color);
+    };
+
+    updateColors(0, valCervical / 40);
+    updateColors(1, valKneeL / 105);
+    updateColors(2, valKneeR / 105);
+    updateColors(3, valPelvic / 17.5);
+};
+
+// Auto initialize on startup
+setTimeout(() => {
+    window.initWebGLHUD();
+    seedDemoDataIfEmpty();
+}, 2000);? "右下がり" : "左下がり") + ")";
     var frontShoulderClass = Math.abs(frontShoulderTilt) < 1.0 ? 'badge-normal' : 'badge-warning';
 
     // 5. 右側面 骨盤 / 頸椎 (0.2°前傾 / 28mm)
