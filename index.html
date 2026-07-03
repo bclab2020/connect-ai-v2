@@ -329,17 +329,39 @@
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
-      .then((reg) => console.log('ServiceWorker registered successfully with scope:', reg.scope))
+      .then((reg) => {
+        console.log('ServiceWorker registered successfully with scope:', reg.scope);
+        // Trigger auto update check
+        reg.onupdatefound = () => {
+          const installingWorker = reg.installing;
+          installingWorker.onstatechange = () => {
+            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log("New service worker version found! Force refreshing...");
+              window.location.reload();
+            }
+          };
+        };
+      })
       .catch((err) => console.error('ServiceWorker registration failed:', err));
+  });
+
+  // Automatically refresh the page once the new ServiceWorker activates
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      console.log("ServiceWorker controller active. Reloading web app now...");
+      window.location.reload();
+    }
   });
 }
 </script>
 
 <!-- App Scripts -->
-<script src="db.js?v=2.9.0"></script>
-<script src="biomechanics.js?v=2.9.0"></script>
-<script src="api.js?v=2.9.0"></script>
-<script src="app.js?v=2.9.0"></script>
+<script src="db.js?v=2.9.1"></script>
+<script src="biomechanics.js?v=2.9.1"></script>
+<script src="api.js?v=2.9.1"></script>
+<script src="app.js?v=2.9.1"></script>
 
 <!-- CORE CONNECT Integration Hook -->
 <script>
