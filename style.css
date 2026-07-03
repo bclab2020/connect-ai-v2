@@ -1888,6 +1888,24 @@ select:hover {
     html body .hud-main-container .analytics-area.analytics-open {
         right: 0 !important;
     }
+    
+    /* V2.8.2: Ensure floating controls on tablets/mobiles never get pushed below screen edge */
+    html body #uiFloatingLayer {
+        max-height: 82vh !important;
+        overflow-y: auto !important;
+        padding-bottom: 30px !important;
+        box-sizing: border-box !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    html body #controlsBox {
+        padding: 6px !important;
+    }
+
+    html body .controls {
+        padding: 10px 12px !important;
+        gap: 8px !important;
+    }
 }
 
 @media (max-width: 768px) {
