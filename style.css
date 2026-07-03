@@ -1845,44 +1845,44 @@ select:hover {
    ========================================================================== */
 @media (max-width: 1024px) {
     /* Tablet and Landscape Mobile: stack columns vertically */
-    .hud-main-container {
-        flex-direction: column;
-        overflow-y: auto;
-        height: 100vh;
+    html body .hud-main-container {
+        flex-direction: column !important;
+        overflow-y: auto !important;
+        height: 100vh !important;
     }
 
-    .visual-area {
-        width: 100%;
-        height: 55vh; /* 55% height of viewport, keeps aspect ratio correct */
-        min-height: 340px;
-        position: relative;
-        flex-shrink: 0;
-    }
-
-    .analytics-area {
+    html body .hud-main-container .visual-area {
         width: 100% !important;
-        height: auto;
-        min-height: 280px;
-        border-left: none;
-        border-top: 1px solid #1a1a1a;
-        flex: 1 0 auto;
+        height: 55vh !important; /* 55% height of viewport, keeps aspect ratio correct */
+        min-height: 340px !important;
+        position: relative !important;
+        flex-shrink: 0 !important;
+    }
+
+    html body .hud-main-container .analytics-area {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 280px !important;
+        border-left: none !important;
+        border-top: 1px solid #1a1a1a !important;
+        flex: 1 0 auto !important;
     }
 }
 
 @media (max-width: 768px) {
     /* Portrait Mobile tweaks */
-    .visual-area {
-        height: 48vh; /* Reduce video height to display more buttons and charts */
-        min-height: 280px;
+    html body .hud-main-container .visual-area {
+        height: 48vh !important; /* Reduce video height to display more buttons and charts */
+        min-height: 280px !important;
     }
     
-    .analytics-area {
-        padding: 16px 20px;
+    html body .hud-main-container .analytics-area {
+        padding: 16px 20px !important;
     }
     
-    .metrics-list {
-        padding: 16px 0;
-        gap: 15px;
+    html body .hud-main-container .analytics-area .metrics-list {
+        padding: 16px 0 !important;
+        gap: 15px !important;
     }
 }
 
