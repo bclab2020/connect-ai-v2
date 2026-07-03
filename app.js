@@ -809,14 +809,15 @@ async function advanceToNextMeasurement() {
         syncTabButtonsForMode(nextMode);
         modeSelect.value = nextMode;
     }
-    updateModeUI(nextMode);
     
-    // 4. カメラを再起動してLive測定に戻る
+    // 4. 先にカメラモード（Live状態）に移行して、不要なHUDスライダーパネルを非表示にする
     appMode = "camera";
     isPausedForEdit = false;
     isPlaying = false;
     selectedJointIndex = null;
     isEditingPlaybackFrame = false;
+    
+    updateModeUI(nextMode);
     
     document.getElementById('dpadPanel').style.display = 'none';
     document.getElementById('playbackControls').style.display = 'none';

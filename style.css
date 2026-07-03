@@ -354,7 +354,7 @@ select:hover {
 #startBtn {
     display: block;
     position: fixed !important;
-    bottom: 35px !important;
+    bottom: 75px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     width: 200px !important;
@@ -393,7 +393,7 @@ select:hover {
 #recBtn {
     display: none;
     position: fixed !important;
-    bottom: 35px !important;
+    bottom: 75px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     width: 80px !important;
@@ -432,7 +432,7 @@ select:hover {
 #nextMeasureBtn, #showViewerBtn {
     display: none;
     position: fixed !important;
-    bottom: 35px !important;
+    bottom: 75px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     width: 220px !important;
