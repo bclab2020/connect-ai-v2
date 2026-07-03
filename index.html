@@ -216,7 +216,8 @@
 
 <!-- Float Controls Layout -->
 <div id="uiFloatingLayer">
-    <!-- Standalone Floating Shutter Button -->
+    <!-- Standalone Floating HUD Buttons -->
+    <button id="startBtn" disabled>⏳ 起動準備中...</button>
     <button id="recBtn" style="display:none;" disabled>撮影</button>
 
     <div class="ui-top-buttons">
@@ -299,7 +300,6 @@
                 <label class="toggle-label"><input type="checkbox" id="showSwayAlert" checked> 警告</label>
             </div>
             
-            <button id="startBtn" disabled>⏳ 起動準備中...</button>
         </div>
 
         <div class="controls" id="playbackControls" style="display:none;">
@@ -336,10 +336,10 @@ if ('serviceWorker' in navigator) {
 </script>
 
 <!-- App Scripts -->
-<script src="db.js?v=2.8.7"></script>
-<script src="biomechanics.js?v=2.8.7"></script>
-<script src="api.js?v=2.8.7"></script>
-<script src="app.js?v=2.8.7"></script>
+<script src="db.js?v=2.8.8"></script>
+<script src="biomechanics.js?v=2.8.8"></script>
+<script src="api.js?v=2.8.8"></script>
+<script src="app.js?v=2.8.8"></script>
 
 <!-- CORE CONNECT Integration Hook -->
 <script>
