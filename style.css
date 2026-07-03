@@ -1840,4 +1840,50 @@ select:hover {
     text-shadow: 0 0 4px rgba(255, 60, 0, 0.4);
 }
 
+/* ==========================================================================
+   V2.8.1 Responsive Layout Adaptations (Stealth HUD Columns Stack)
+   ========================================================================== */
+@media (max-width: 1024px) {
+    /* Tablet and Landscape Mobile: stack columns vertically */
+    .hud-main-container {
+        flex-direction: column;
+        overflow-y: auto;
+        height: 100vh;
+    }
+
+    .visual-area {
+        width: 100%;
+        height: 55vh; /* 55% height of viewport, keeps aspect ratio correct */
+        min-height: 340px;
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .analytics-area {
+        width: 100% !important;
+        height: auto;
+        min-height: 280px;
+        border-left: none;
+        border-top: 1px solid #1a1a1a;
+        flex: 1 0 auto;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Portrait Mobile tweaks */
+    .visual-area {
+        height: 48vh; /* Reduce video height to display more buttons and charts */
+        min-height: 280px;
+    }
+    
+    .analytics-area {
+        padding: 16px 20px;
+    }
+    
+    .metrics-list {
+        padding: 16px 0;
+        gap: 15px;
+    }
+}
+
 
