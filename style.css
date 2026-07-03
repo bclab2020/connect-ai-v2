@@ -371,6 +371,7 @@ select:hover {
 }
 
 #recBtn {
+    display: none;
     background: linear-gradient(135deg, var(--accent-red) 0%, #b30000 100%);
     color: white;
     min-width: 160px;

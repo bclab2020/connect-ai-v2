@@ -1571,72 +1571,88 @@ startBtn.onclick = async function() {
     
     document.getElementById('playbackControls').style.display = 'none';
     document.getElementById('mainControls').style.display = 'flex';
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('recBtn').style.display = 'block';
     document.getElementById('recBtn').disabled = false;
     updateCameraModeBadge(); // V2.5.1
     
-    try {
-        var constraints = {
-            video: {
-                width: { ideal: 1920 },
-                height: { ideal: 1080 }
-            }
-        };
-        if (isMobileView) {
-            // V2.5.7: モバイル時は選択したモードのカメラへ確実に強制固定する (exact)
-            constraints.video.facingMode = { exact: cameraFacingMode };
-        } else if (videoSource.value) {
-            constraints.video.deviceId = { exact: videoSource.value };
-        } else {
-            constraints.video.facingMode = { ideal: "environment" };
-        }
+    // V2.8.6: Wait 150ms to let browser release hardware before requesting next camera stream
+    setTimeout(async () => {
+        if (currentSession !== renderSessionId) return;
         
         try {
-            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-        } catch (err) {
-            console.warn("Exact facingMode constraint failed, falling back to ideal:", err);
-            // V2.5.7: フォールバック（PCや背面カメラのない特殊環境用）
-            if (constraints.video.facingMode) {
-                constraints.video.facingMode = { ideal: cameraFacingMode };
+            var constraints = {
+                video: {
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                }
+            };
+            
+            // Prioritize manually selected camera from dropdown
+            if (videoSource.value) {
+                constraints.video.deviceId = { exact: videoSource.value };
+            } else if (isMobileView) {
+                constraints.video.facingMode = { exact: cameraFacingMode };
+            } else {
+                constraints.video.facingMode = { ideal: "environment" };
             }
-            if (constraints.video.deviceId) {
-                delete constraints.video.deviceId;
+            
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (err) {
+                console.warn("Exact facingMode constraint failed, falling back to ideal:", err);
+                if (constraints.video.facingMode) {
+                    constraints.video.facingMode = { ideal: cameraFacingMode };
+                }
+                if (constraints.video.deviceId) {
+                    delete constraints.video.deviceId;
+                }
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
             }
-            currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = currentStream;
+            video.onloadeddata = function() { 
+                canvasMP.width = video.videoWidth; 
+                canvasMP.height = video.videoHeight; 
+                canvasComb.width = video.videoWidth; 
+                canvasComb.height = video.videoHeight; 
+                isRunning = true;
+                video.play(); 
+                
+                // Hide setup, show record start button
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('recBtn').style.display = 'block';
+                document.getElementById('recBtn').disabled = false;
+                
+                // Collapse settings panel on mobile/tablet after feed starts
+                var isMobileOrTablet = window.innerWidth < 1024;
+                if (isMobileOrTablet) {
+                    var settings = document.getElementById('settingsWrapper');
+                    var btn = document.getElementById('toggleUiBtn');
+                    if (settings && btn) {
+                        settings.style.display = 'none';
+                        btn.innerText = '🔼 UIを表示';
+                    }
+                }
+                
+                // Check gyro settings on mobile startup
+                if (window.innerWidth < 768 && !isGyroEnabled) {
+                    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                        document.getElementById('gyroPermissionModal').style.display = 'block';
+                    } else {
+                        requestDeviceOrientationPermission();
+                    }
+                }
+                checkDeviceType();
+                render(currentSession); 
+            };
+        } catch (e) {
+            console.error("Camera startup failed:", e);
+            // Restore buttons to initial state if camera fails
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('recBtn').style.display = 'none';
+            alert("カメラの起動に失敗しました。カメラパーミッションを確認してください。");
         }
-        video.srcObject = currentStream;
-        video.onloadeddata = function() { 
-            canvasMP.width = video.videoWidth; 
-            canvasMP.height = video.videoHeight; 
-            canvasComb.width = video.videoWidth; 
-            canvasComb.height = video.videoHeight; 
-            isRunning = true;
-            video.play(); 
-            
-            // カメラ起動完了後に自動で設定パネルを閉じて、プレビューを全画面表示にする
-            var isMobileOrTablet = window.innerWidth < 1024;
-            if (isMobileOrTablet) {
-                var settings = document.getElementById('settingsWrapper');
-                var btn = document.getElementById('toggleUiBtn');
-                if (settings && btn) {
-                    settings.style.display = 'none';
-                    btn.innerText = '🔼 UIを表示';
-                }
-            }
-            
-            // Check gyro settings on mobile startup
-            if (window.innerWidth < 768 && !isGyroEnabled) {
-                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    document.getElementById('gyroPermissionModal').style.display = 'block';
-                } else {
-                    requestDeviceOrientationPermission();
-                }
-            }
-            checkDeviceType();
-            render(currentSession); 
-        };
-    } catch (e) {
-        alert("カメラの起動に失敗しました。カメラパーミッションを確認してください。");
-    }
+    }, 150);
 };
 
 // Render Loop
