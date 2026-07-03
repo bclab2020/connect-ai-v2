@@ -1466,16 +1466,6 @@ function playLoop(startFrame) {
 
 // Camera/Live view setup loops
 async function init() {
-    // アプリ起動時に即座にスマホ・タブレット判定をして、不要な設定パネルを折りたたむ
-    var isMobileOrTablet = window.innerWidth < 1024;
-    if (isMobileOrTablet) {
-        var settings = document.getElementById('settingsWrapper');
-        var btn = document.getElementById('toggleUiBtn');
-        if (settings && btn) {
-            settings.style.display = 'none';
-            btn.innerText = '🔼 UIを表示';
-        }
-    }
 
     if (sessionStorage.getItem('isSpecialist') === 'true') {
         isSpecialist = true;
@@ -1621,6 +1611,17 @@ startBtn.onclick = async function() {
             canvasComb.height = video.videoHeight; 
             isRunning = true;
             video.play(); 
+            
+            // カメラ起動完了後に自動で設定パネルを閉じて、プレビューを全画面表示にする
+            var isMobileOrTablet = window.innerWidth < 1024;
+            if (isMobileOrTablet) {
+                var settings = document.getElementById('settingsWrapper');
+                var btn = document.getElementById('toggleUiBtn');
+                if (settings && btn) {
+                    settings.style.display = 'none';
+                    btn.innerText = '🔼 UIを表示';
+                }
+            }
             
             // Check gyro settings on mobile startup
             if (window.innerWidth < 768 && !isGyroEnabled) {
