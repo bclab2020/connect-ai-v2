@@ -2378,12 +2378,23 @@ window.updateWebGLPose = function(keypoints, w, h) {
     
     hudWidth = w || 640;
     hudHeight = h || 480;
+
+    // Reset visibility if no keypoints provided
+    if (!keypoints || keypoints.length === 0) {
+        Object.keys(glJoints).forEach(k => glJoints[k].position.set(0, 0, -9999));
+        glMuscles.forEach(m => m.mesh.visible = false);
+        return;
+    }
     
-    // 1. Update Joint meshes positions
+    // 1. Update Joint meshes positions with noise confidence filtering (score >= 0.55)
     var foundKps = {};
     keypoints.forEach(kp => {
         var name = kp.name;
         if (glJoints[name]) {
+            if (kp.score !== undefined && kp.score < 0.55) {
+                glJoints[name].position.set(0, 0, -9999);
+                return;
+            }
             var glPos = mapMpToGl(kp.x, kp.y, hudWidth, hudHeight);
             glJoints[name].position.set(glPos.x, glPos.y, 0);
             foundKps[name] = glPos;
