@@ -1824,7 +1824,7 @@ recBtn.onclick = function() {
     swayHistoryMP = [];
     
     recBtn.disabled = true;
-    recBtn.innerText = "🔴 測定中...";
+    recBtn.innerText = "測定中";
     timerDisplay.style.display = 'block';
     
     var canvasStream = canvasComb.captureStream(25); 
@@ -1862,7 +1862,7 @@ recBtn.onclick = function() {
 // Stop Recording logic
 async function stopRecording() {
     isRecording = false;
-    recBtn.innerText = "🔴 録画スタート";
+    recBtn.innerText = "撮影";
     recBtn.disabled = false;
     timerDisplay.style.display = 'none';
     

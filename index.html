@@ -216,6 +216,9 @@
 
 <!-- Float Controls Layout -->
 <div id="uiFloatingLayer">
+    <!-- Standalone Floating Shutter Button -->
+    <button id="recBtn" style="display:none;" disabled>撮影</button>
+
     <div class="ui-top-buttons">
         <button id="toggleCameraModeBtn" class="ui-top-btn" style="border-color:var(--accent-teal); color:var(--accent-teal);">🤳 セルフ撮影へ</button>
         <button id="toggleUiBtn" class="ui-top-btn">🔽 UIを隠す</button>
@@ -297,7 +300,6 @@
             </div>
             
             <button id="startBtn" disabled>⏳ 起動準備中...</button>
-            <button id="recBtn" disabled>🔴 録画スタート</button>
         </div>
 
         <div class="controls" id="playbackControls" style="display:none;">
@@ -334,10 +336,10 @@ if ('serviceWorker' in navigator) {
 </script>
 
 <!-- App Scripts -->
-<script src="db.js?v=2.8.6"></script>
-<script src="biomechanics.js?v=2.8.6"></script>
-<script src="api.js?v=2.8.6"></script>
-<script src="app.js?v=2.8.6"></script>
+<script src="db.js?v=2.8.7"></script>
+<script src="biomechanics.js?v=2.8.7"></script>
+<script src="api.js?v=2.8.7"></script>
+<script src="app.js?v=2.8.7"></script>
 
 <!-- CORE CONNECT Integration Hook -->
 <script>
