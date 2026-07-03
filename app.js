@@ -2175,30 +2175,66 @@ window.prepareAndPrintReport = prepareAndPrintReport;
 async function seedDemoDataIfEmpty() {
     try {
         var sessions = await dbManager.getAllSessions();
-        
-        // 1. 古いデモデータ（demo_sarah_j_2026）があれば強制削除
-        var hasOldSarah = sessions.some(s => s.id === "demo_sarah_j_2026");
-        if (hasOldSarah) {
-            console.log("Found old Sarah J. demo data. Deleting...");
-            await dbManager.deleteSession("demo_sarah_j_2026");
-        }
-        
-        // 2. CONNECT TOWNのデモデータが既に存在する場合は、一旦削除して常に最新データを上書き（オーバーライト）する
         var hasNewDemo = sessions.some(s => s.id === "demo_connect_town_2026");
         if (hasNewDemo) {
-            console.log("Updating existing CONNECT TOWN demo data with latest metrics...");
-            await dbManager.deleteSession("demo_connect_town_2026");
+            return; // 既に存在する場合は何もしない
         }
         
-        console.log("Seeding demo data for Athlete 'CONNECT TOWN'...");
+        console.log("Seeding lightweight demo data for CONNECT TOWN...");
+        var demoSession = {
+            id: "demo_connect_town_2026",
+            athleteName: "CONNECT TOWN",
+            height: 170,
+            footSize: 25,
+            timestamp: new Date().toISOString(),
+            mode: "dyn_squat",
+            aiReportText: "【動作解析デモデータ】\n膝の最大屈曲時に骨盤前傾ストレスが発生しています。\n大腿四頭筋（大腿直筋）の緊張を緩和し、骨盤を立てるスクワットを推奨します。",
+            measurements: {
+                l_side: { pelvicTilt: 4.8 },
+                r_side: { pelvicTilt: 4.5 }
+            },
+            history: []
+        };
         
-        function getKpsBase(mode) {
-            var kps = [];
-            for (var i = 0; i < 33; i++) {
-                kps.push({ x: 320, y: 240, z: 0, score: 0.99, name: i.toString() });
-            }
-            kps[0].name = "nose";
-      window.closeFullscreenModal = function() {
+        // ダミーの軌跡フレーム（タイムライン再生用）を生成
+        for (var f = 0; f < 60; f++) {
+            var ratio = f / 59;
+            var squatPhase = (Math.sin(ratio * Math.PI) + 1) / 2; // Squat motion 0..1
+            var kneeAngle = squatPhase * 105;
+            
+            // MediaPipe 座標のダミー
+            var kps = [
+                { name: "nose", x: 320, y: 120 + squatPhase * 30 },
+                { name: "left_ear", x: 310, y: 110 + squatPhase * 30 },
+                { name: "right_ear", x: 330, y: 110 + squatPhase * 30 },
+                { name: "left_shoulder", x: 290, y: 160 + squatPhase * 30 },
+                { name: "right_shoulder", x: 350, y: 160 + squatPhase * 30 },
+                { name: "left_hip", x: 295, y: 260 + squatPhase * 15 },
+                { name: "right_hip", x: 345, y: 260 + squatPhase * 15 },
+                { name: "left_knee", x: 290 - squatPhase * 20, y: 340 + squatPhase * 5 },
+                { name: "right_knee", x: 350 + squatPhase * 20, y: 340 + squatPhase * 5 },
+                { name: "left_ankle", x: 295, y: 420 },
+                { name: "right_ankle", x: 345, y: 420 }
+            ];
+            
+            demoSession.history.push({
+                frameIndex: f,
+                keypoints: kps,
+                timestamp: Date.now() + (f * 33)
+            });
+        }
+        
+        await dbManager.saveSession(demoSession);
+        console.log("Demo data seed successful!");
+        if (typeof window.refreshHistoryList === 'function') {
+            window.refreshHistoryList();
+        }
+    } catch (e) {
+        console.error("Error seeding demo data:", e);
+    }
+}
+
+window.closeFullscreenModal = function() {
     // Legacy support, viewer modal deleted
 };
 
