@@ -721,12 +721,13 @@ function updateModeUI(mode) {
     var modeSelect = document.getElementById('modeSelect');
     if (modeSelect) modeSelect.value = currentTab;
     
-    // V2.5.8: 次の測定ナビゲーションボタンの表示制御
+    // V2.8.9: 次の測定ナビゲーションおよび結果閲覧のフローティングボタン表示制御
     var nextBtn = document.getElementById('nextMeasureBtn');
+    var viewerBtn = document.getElementById('showViewerBtn');
     if (nextBtn) {
         var isStaticMode = ['front', 'back', 'l_side', 'r_side'].includes(mode);
         if (isStaticMode && appMode === 'playback') {
-            nextBtn.style.display = 'inline-block';
+            nextBtn.style.display = 'flex';
             var labels = {
                 'front': '決定して左側面へ ➡',
                 'l_side': '決定して後面へ ➡',
@@ -734,8 +735,16 @@ function updateModeUI(mode) {
                 'r_side': '決定してレポート表示 📊'
             };
             nextBtn.innerText = labels[mode] || '決定して次へ';
+            if (viewerBtn) viewerBtn.style.display = 'none';
         } else {
             nextBtn.style.display = 'none';
+            if (viewerBtn) {
+                if (appMode === 'playback') {
+                    viewerBtn.style.display = 'flex';
+                } else {
+                    viewerBtn.style.display = 'none';
+                }
+            }
         }
     }
     
@@ -1362,6 +1371,8 @@ window.loadSession = async function(id) {
             
             document.getElementById('mainControls').style.display = 'none'; 
             document.getElementById('playbackControls').style.display = 'flex';
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('recBtn').style.display = 'none';
             document.getElementById('downloadCsvBtn').disabled = false;
             
             updateInfoPanel();
@@ -1864,6 +1875,8 @@ async function stopRecording() {
     isRecording = false;
     recBtn.innerText = "撮影";
     recBtn.disabled = false;
+    recBtn.style.display = 'none';
+    startBtn.style.display = 'none';
     timerDisplay.style.display = 'none';
     
     document.body.classList.remove('recording-active');
@@ -1956,6 +1969,8 @@ function exitPlaybackMode() {
     document.getElementById('dpadPanel').style.display = 'none';
     document.getElementById('playbackControls').style.display = 'none';
     document.getElementById('mainControls').style.display = 'flex';
+    document.getElementById('startBtn').style.display = 'block';
+    document.getElementById('recBtn').style.display = 'none';
     document.getElementById('editFrameBtn').innerText = "✂️ 微調整";
     document.getElementById('editFrameBtn').style.background = "var(--accent-orange)";
     document.getElementById('editFrameBtn').style.color = "#000";

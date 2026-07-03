@@ -429,6 +429,45 @@ select:hover {
     cursor: not-allowed !important;
 }
 
+#nextMeasureBtn, #showViewerBtn {
+    display: none;
+    position: fixed !important;
+    bottom: 35px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 220px !important;
+    height: 50px !important;
+    border-radius: 25px !important;
+    z-index: 9999 !important; /* Always on top */
+    cursor: pointer !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 15px !important;
+    font-weight: bold !important;
+    transition: all 0.2s ease !important;
+    outline: none !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+}
+
+#nextMeasureBtn {
+    background: linear-gradient(135deg, #00e676 0%, #00a152 100%) !important;
+    border: 2px solid rgba(255, 255, 255, 0.8) !important;
+    color: white !important;
+    box-shadow: 0 8px 25px rgba(0, 230, 118, 0.45) !important;
+}
+
+#showViewerBtn {
+    background: linear-gradient(135deg, var(--accent-teal) 0%, #008080 100%) !important;
+    border: 2px solid rgba(255, 255, 255, 0.8) !important;
+    color: white !important;
+    box-shadow: 0 8px 25px rgba(0, 128, 128, 0.45) !important;
+}
+
+#nextMeasureBtn:hover:not(:disabled), #showViewerBtn:hover:not(:disabled) {
+    transform: translateX(-50%) scale(1.04) !important;
+}
+
 /* Specific buttons for playback */
 .gray-btn { background: #334466; color: white; }
 .gray-btn:hover { background: #445577; }
