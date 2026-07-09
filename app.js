@@ -66,6 +66,7 @@ var renderSessionId = 0;
 var playbackStartTime = 0;
 var playbackBaseTime = 0;
 var playbackTotalDuration = 0;
+var playbackStartFrame = 0;
 
 window.currentAnchorPos = null;
 window.customOriginMarkers = {};
@@ -1444,12 +1445,12 @@ function togglePlay(forcePlay) {
         btn.innerText = "⏸ 一時停止";
         playbackStartTime = Date.now();
         var slider = document.getElementById('timelineSlider');
-        var startFrame = parseInt(slider.value);
-        if (startFrame >= playbackDataMP.length - 1) {
-            startFrame = 0;
+        playbackStartFrame = parseInt(slider.value);
+        if (playbackStartFrame >= playbackDataMP.length - 1) {
+            playbackStartFrame = 0;
             slider.value = 0;
         }
-        playLoop(startFrame);
+        playLoop();
     } else {
         btn.innerText = "▶ 再生";
         if (playbackRafId) {
@@ -1459,21 +1460,31 @@ function togglePlay(forcePlay) {
     }
 }
 
-function playLoop(startFrame) {
+function playLoop() {
     if (!isPlaying) return;
     
     var slider = document.getElementById('timelineSlider');
-    var currentFrame = startFrame + Math.floor((Date.now() - playbackStartTime) / 100); 
+    var elapsedMs = Date.now() - playbackStartTime;
+    
+    // Calculate average frame interval based on actual time logs (fallback to 33.3ms for ~30fps)
+    var frameIntervalMs = 33.3; 
+    if (playbackDataMP.length > 1 && playbackDataMP[1].time && playbackDataMP[0].time) {
+        var totalMs = playbackDataMP[playbackDataMP.length - 1].time - playbackDataMP[0].time;
+        frameIntervalMs = totalMs / (playbackDataMP.length - 1);
+    }
+    
+    var currentFrame = playbackStartFrame + Math.floor(elapsedMs / frameIntervalMs);
     
     if (currentFrame >= playbackDataMP.length) {
         currentFrame = 0;
         playbackStartTime = Date.now();
+        playbackStartFrame = 0;
         slider.value = 0;
     }
     
     slider.value = currentFrame;
     renderPlaybackFrame(currentFrame);
-    playbackRafId = requestAnimationFrame(() => playLoop(currentFrame));
+    playbackRafId = requestAnimationFrame(playLoop);
 }
 
 // Camera/Live view setup loops
